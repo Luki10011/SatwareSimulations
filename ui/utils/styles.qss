@@ -1,0 +1,311 @@
+/* ==========================================================================
+   GLOBALNE USTAWIENIA BAZOWE
+   ========================================================================== */
+QMainWindow {
+    background-color: #1e1e1e;
+    color: #ffffff;
+}
+
+/* Domyślny wygląd etykiet tekstowych */
+QLabel {
+    color: #ffffff;
+    font-family: "Segoe UI", "Arial", sans-serif;
+}
+
+/* ==========================================================================
+   STYL DLA PRZYCISKÓW (QPushButton)
+   ========================================================================== */
+QPushButton {
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 5px;
+    color: #ffffff;
+    font-family: "Segoe UI", "Arial", sans-serif;
+    font-size: 10pt;
+    padding: 6px 14px;
+}
+
+QPushButton:hover {
+    background-color: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+QPushButton:pressed {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+QPushButton:disabled {
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* ==========================================================================
+   STYL DLA LIST ROZWIJANYCH (QComboBox)
+   ========================================================================== */
+QComboBox {
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 5px;
+    color: #ffffff;
+    font-family: "Segoe UI", "Arial", sans-serif;
+    font-size: 10pt;
+    padding: 5px 30px 5px 12px;
+    min-height: 22px;
+}
+
+QComboBox:hover {
+    background-color: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: none; 
+}
+
+QComboBox::down-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid rgba(255, 255, 255, 0.7);
+    margin-top: 2px;
+    margin-right: 4px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #2c2c2c;
+    color: #ffffff;
+    border: 1px solid #3c3c3c;
+    border-radius: 6px;
+    selection-background-color: #ff4d4d;
+    padding: 4px;
+}
+
+/* ==========================================================================
+   STYL DLA CHMUREK PODPOWIEDZI (QToolTip)
+   ========================================================================== */
+QToolTip {
+    background-color: #2c2c2c;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 9pt;
+}
+
+/* Styl dla naszej ikonki informacyjnej */
+QLabel#InfoIcon {
+    color: rgba(255, 255, 255, 0.4); /* Domyślnie delikatnie wyszarzona */
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+QLabel#InfoIcon:hover {
+    color: #ff4d4d; /* Po najechaniu rozbłyska na niebieski kolor akcentu */
+}
+
+/* ==========================================================================
+   POLA TEKSTOWE (QLineEdit) - STYL FLUENT DARK
+   ========================================================================== */
+QLineEdit {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.40); /* Charakterystyczna jaśniejsza dolna krawędź */
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 10pt;
+    selection-background-color: #ff4d4d;
+}
+
+QLineEdit:hover {
+    background-color: rgba(255, 255, 255, 0.09);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.50);
+}
+
+QLineEdit:focus {
+    background-color: #1e1e1e;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    /* Niebieska linia akcentu na dole przy aktywnym polu */
+    border-bottom: 2px solid #ff4d4d; 
+    padding-bottom: 4px; /* Kompensacja grubości ramki focusu */
+}
+
+/* Stan błędu walidacji (użyjemy selektora właściwości) */
+QLineEdit[hasError="true"] {
+    background-color: rgba(255, 61, 61, 0.1);
+    border: 1px solid #ff4d4d;
+    border-bottom: 2px solid #ff4d4d;
+}
+
+/* ==========================================================================
+   POLA WYBORU (QCheckBox) - PEŁNE NADPISANIE
+   ========================================================================== */
+QCheckBox {
+    color: #ffffff;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 10pt;
+    spacing: 8px; /* Odstęp między kwadracikiem a tekstem */
+    background: transparent;
+}
+
+/* Stan domyślny samego kwadracika */
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Najechanie myszką na kwadracik */
+QCheckBox::indicator:hover {
+    background-color: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+QCheckBox::indicator:checked {
+    background-color: #a82325;
+    border: 1px solid #a30003;
+}
+
+QCheckBox::indicator:checked:hover {
+    background-color: #a82325;
+    border: 1px solid #a30003;
+}
+
+QCheckBox:disabled {
+    color: rgba(255, 255, 255, 0.36); /* Delikatny, przygaszony szary tekst */
+}
+
+/* 2. Wyszarzenie samego kwadracika, gdy NIE jest zaznaczony */
+QCheckBox::indicator:disabled {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* ==========================================================================
+   OKNA DIALOGOWE (QDialog & QMessageBox)
+   ========================================================================== */
+QDialog, QMessageBox {
+    background-color: #202020; /* Solidne, ciemne tło zapobiegające przezroczystości */
+    color: #ffffff;
+    font-family: "Segoe UI", sans-serif;
+}
+
+/* Wymuszenie białego koloru tekstu dla wszystkich etykiet wewnątrz okien popup */
+QDialog QLabel, QMessageBox QLabel {
+    color: #ffffff;
+    font-size: 10pt;
+}
+
+/* Stylizacja przycisków systemowych (OK, Cancel, Close) wewnątrz dialogów */
+QDialog QPushButton, QMessageBox QPushButton {
+    min-width: 80px;
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 5px 16px;
+    font-size: 9.5pt;
+}
+
+QDialog QPushButton:hover, QMessageBox QPushButton:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+QDialog QPushButton:focus, QMessageBox QPushButton:focus {
+    border: 2px solid #ff4d4d; /* Niebieska obwódka aktywnego przycisku (np. domyślnego OK) */
+    padding: 4px 15px; /* Kompensacja grubości ramki */
+}
+
+/* ==========================================================================
+   KOMPOZYCJA OKNA PREDEFINED ORBIT (QComboBox & QTextBrowser)
+   ========================================================================== */
+
+/* 1. Pole wyboru orbity (QComboBox) */
+QComboBox {
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.40);
+    border-radius: 4px;
+    padding: 5px 30px 5px 10px;
+    color: #ffffff;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 10pt;
+}
+
+QComboBox:hover {
+    background-color: rgba(255, 255, 255, 0.09);
+}
+
+/* Przycisk rozwijania (strzałka) */
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 25px;
+    border-left-width: 0px;
+}
+
+/* Nowoczesna, biała strzałka w dół (Base64 SVG) */
+QComboBox::down-arrow {
+    image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik03LjQxIDguNTlMMTIgMTMuMTdsNC41OS00LjU4TDE4IDEwbC02IDYtNi02IDEuNDEtMS40MXoiLz48L3N2Zz4=);
+    width: 12px;
+    height: 12px;
+}
+
+/* Rozwijana lista (Popup Menu) - Krytyczne dla widoczności opcji! */
+QComboBox QAbstractItemView {
+    background-color: #2c2c2c;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    selection-background-color: #ff4d4d;
+    selection-color: #ffffff;
+    padding: 4px;
+    outline: 0px;
+}
+
+/* 2. Okno opisu charakterystyki orbity (QTextBrowser / QTextEdit) */
+QTextBrowser {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 10pt;
+    line-height: 150%;
+}
+
+/* Paski przewijania (Scrollbars) w oknie opisu */
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 2px 2px 2px 2px;
+}
+
+QScrollBar::handle:vertical {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+}

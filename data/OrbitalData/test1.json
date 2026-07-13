@@ -1,0 +1,8 @@
+{
+    "semi_major_axis": 13000.0,
+    "eccentricity": 0.2,
+    "inclination": 45.0,
+    "raan": 10.0,
+    "arg_perigee": 25.0,
+    "true_anomaly": 45.0
+}
