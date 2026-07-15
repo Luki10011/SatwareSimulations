@@ -82,6 +82,9 @@ class MainWindow(QMainWindow):
         """Tworzy i rejestruje ekrany wewnątrz QStackedWidget od razu przy starcie."""
         # Index 0: Welcome screen
         self.welcome_screen = MainScreenWelcome()
+        self.welcome_screen.orbit_item.connectClick(self.show_orbit_designer)
+        self.welcome_screen.satellite_item.connectClick(lambda : print("Satellite item clicked"))
+        self.welcome_screen.experiment_item.connectClick(lambda : print("Experiment item clicked"))
         self.central_stacked_widget.addWidget(self.welcome_screen)
   
         # Index 1: Loading screen
@@ -97,29 +100,7 @@ class MainWindow(QMainWindow):
     def init_menu_bar(self):
         """Configures the menu bar at the top of the screen."""
         menu_bar = self.menuBar()
-        menu_bar.setStyleSheet("""
-            QMenuBar {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                font-size: 10pt;
-            }
-            QMenuBar::item:selected {
-                background-color: #3e3e3e;
-            }
-            QMenu {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                border: 1px solid #3e3e3e;
-            }
-            QMenu::item:selected {
-                background-color: #e81123;
-            }
-            QMenu::item {
-                margin: 2px 4px;
-                font-size: 10pt;
-            }
-        """)
-        
+       
         file_menu = menu_bar.addMenu("&System")
         
         home_action = QAction("Start Screen", self)

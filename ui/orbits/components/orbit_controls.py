@@ -28,7 +28,7 @@ class OrbitControlsWidget(QWidget):
 
         self.header_label = QLabel("Define Orbital Parameters")
         self.header_label.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 15px;"
+            "font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 6px;"
         )
         self.header_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         form_layout.addRow(self.header_label)
@@ -108,7 +108,7 @@ class OrbitControlsWidget(QWidget):
 
         self.display_options_label = QLabel("Display Options")
         self.display_options_label.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 15px; margin-top: 30px;"
+            "font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 6px; margin-top: 10px;"
         )
         self.display_options_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         form_layout.addRow(self.display_options_label)
@@ -171,7 +171,7 @@ class OrbitControlsWidget(QWidget):
 
         self.orbit_options_label = QLabel("Orbit Display Options")
         self.orbit_options_label.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 15px; margin-top: 30px;"
+            "font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 6px; margin-top: 10px;"
         )
         self.orbit_options_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         form_layout.addRow(self.orbit_options_label)
