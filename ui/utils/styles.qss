@@ -84,7 +84,7 @@ QComboBox QAbstractItemView {
     color: #ffffff;
     border: 1px solid #3c3c3c;
     border-radius: 6px;
-    selection-background-color: #ff4d4d;
+    selection-background-color: #4d7aff;
     padding: 4px;
 }
 
@@ -109,7 +109,7 @@ QLabel#InfoIcon {
 }
 
 QLabel#InfoIcon:hover {
-    color: #ff4d4d; /* Po najechaniu rozbłyska na niebieski kolor akcentu */
+    color: #4d7aff; /* Po najechaniu rozbłyska na niebieski kolor akcentu */
 }
 
 /* ==========================================================================
@@ -124,7 +124,7 @@ QLineEdit {
     padding: 5px 8px;
     font-family: "Segoe UI", sans-serif;
     font-size: 10pt;
-    selection-background-color: #ff4d4d;
+    selection-background-color: #4d7aff;
 }
 
 QLineEdit:hover {
@@ -136,15 +136,15 @@ QLineEdit:focus {
     background-color: #1e1e1e;
     border: 1px solid rgba(255, 255, 255, 0.04);
     /* Niebieska linia akcentu na dole przy aktywnym polu */
-    border-bottom: 2px solid #ff4d4d; 
+    border-bottom: 2px solid #4d7aff; 
     padding-bottom: 4px; /* Kompensacja grubości ramki focusu */
 }
 
 /* Stan błędu walidacji (użyjemy selektora właściwości) */
 QLineEdit[hasError="true"] {
     background-color: rgba(255, 61, 61, 0.1);
-    border: 1px solid #ff4d4d;
-    border-bottom: 2px solid #ff4d4d;
+    border: 1px solid #4d7aff;
+    border-bottom: 2px solid #4d7aff;
 }
 
 /* ==========================================================================
@@ -174,13 +174,13 @@ QCheckBox::indicator:hover {
 }
 
 QCheckBox::indicator:checked {
-    background-color: #a82325;
-    border: 1px solid #a30003;
+    background-color: #374c8a;
+    border: 1px solid #4d7aff;
 }
 
 QCheckBox::indicator:checked:hover {
-    background-color: #a82325;
-    border: 1px solid #a30003;
+    background-color: #374c8a;
+    border: 1px solid #4d7aff;
 }
 
 QCheckBox:disabled {
@@ -225,7 +225,7 @@ QDialog QPushButton:hover, QMessageBox QPushButton:hover {
 }
 
 QDialog QPushButton:focus, QMessageBox QPushButton:focus {
-    border: 2px solid #ff4d4d; /* Niebieska obwódka aktywnego przycisku (np. domyślnego OK) */
+    border: 2px solid #4d7aff; /* Niebieska obwódka aktywnego przycisku (np. domyślnego OK) */
     padding: 4px 15px; /* Kompensacja grubości ramki */
 }
 
@@ -270,7 +270,7 @@ QComboBox QAbstractItemView {
     color: #ffffff;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 6px;
-    selection-background-color: #ff4d4d;
+    selection-background-color: #4d7aff;
     selection-color: #ffffff;
     padding: 4px;
     outline: 0px;
@@ -308,4 +308,25 @@ QScrollBar::handle:vertical:hover {
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     border: none;
     background: none;
+}
+
+QMenuBar {
+    background-color: #2d2d2d;
+    color: #ffffff;
+    font-size: 10pt;
+}
+QMenuBar::item:selected {
+    background-color: #3e3e3e;
+}
+QMenu {
+    background-color: #2d2d2d;
+    color: #ffffff;
+    border: 1px solid #3e3e3e;
+}
+QMenu::item:selected {
+    background-color: #4d7aff;
+}
+QMenu::item {
+    margin: 2px 4px;
+    font-size: 10pt;
 }
