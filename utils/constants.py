@@ -9,7 +9,8 @@ CONSTANTS : Dict[str, float] ={
     "mu" : 3.986004418e14,                    # Standard gravitational parameter for Earth in m^3 s^-2
     "J2" : 1.08263e-3,                        # Second zonal harmonic coefficient for Earth
     "R" : 6.378e6,                            # Earth's radius [m]
-    "pi" : 3.14159                            # pi constant
+    "pi" : 3.14159,                           # pi constant
+    "omega_E" : 7.292115e-5                    # Earth's rotation speed [rad/s]
 }
 
 ISS : Dict[str, float] = {
@@ -40,7 +41,7 @@ GEO : Dict[str, float] = {
 }
 
 SUN_SYNCHRONOUS : Dict[str, float] = {
-    "semi_major_axis" : 7.12e3,                   # Semi-major axis
+    "semi_major_axis" : 7.027e3,                  # Semi-major axis
     "eccentricity" : 0.00,                        # Eccentricity
     "inclination" : 98.0,                         # Inclination
     "raan" : 0.0,                                 # Right Ascension of the Ascending Node (RAAN) in degrees

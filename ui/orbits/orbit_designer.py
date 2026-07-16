@@ -19,8 +19,10 @@ from core.physics.orbits import Orbit
 from ui.orbits.components.orbit_controls import OrbitControlsWidget
 from ui.orbits.components.orbit_scene import OrbitSceneHelper
 from ui.orbits.components.J2_analyzer_controls import J2AnalyzerControlsWidget
+from ui.orbits.components.characteristics_tab import OrbitCharacteristicsTab
 from utils.constants import CONSTANTS
 import json
+from utils.configuration import dt
 
 from utils.rotations import get_pqw_to_eci_matrix
 
@@ -59,6 +61,7 @@ class OrbitDesigner(QWidget):
         self.animation_step_count = 1000
         self.animation_period = None
         self.perturbed_annotations_items = []
+        self.dt = dt
 
         self.setup_view()
 
@@ -99,7 +102,7 @@ class OrbitDesigner(QWidget):
         self.btn_j2.setEnabled(False)
 
         self.controls = OrbitControlsWidget(self)
-        self.chars_controls = QWidget()  # TODO: Need to be changed
+        self.chars_controls = OrbitCharacteristicsTab()  
         self.j2_controls = J2AnalyzerControlsWidget(self)
 
         self._connect_controls()
@@ -149,7 +152,14 @@ class OrbitDesigner(QWidget):
                 
         elif index == 1:  
             if self.orbit is not None:
-                pass # self.chars_controls.update_characteristics(self.orbit)
+                
+                eci_positions = np.array([state.p * 1e-3 for state in self.orbit.orbitalState], dtype=np.float32)
+                times = np.linspace(0, self.orbit.orbital_period, len(eci_positions))
+                
+                self.chars_controls.update_characteristics(
+                    orbital_elements=self.orbit.orbitalElements, 
+                    eci_positions=eci_positions,
+                    times=times)
 
     def _set_camera_limits(self, min_dist: float, max_dist: float):
         """Set the minimum and maximum camera distance for zooming in/out."""
@@ -437,7 +447,7 @@ class OrbitDesigner(QWidget):
 
     def _animation_interval(self) -> int:   
         """Convert the slider value into a timer interval in milliseconds."""
-        speed_value = max(1, self.controls.speed_slider.value() * 5)
+        speed_value = max(1, self.controls.speed_slider.value() * 20)
         if self.animation_speeds is None or len(self.animation_speeds) == 0:
             return max(1, int(20 / speed_value))
 
@@ -452,7 +462,7 @@ class OrbitDesigner(QWidget):
             current_speed = float(self.animation_speeds[self.animation_index % len(self.animation_speeds)])
 
         speed_ratio = current_speed / max(1.0, float(np.max(self.animation_speeds)))
-        base_interval = max(20, int(1400 * (1.0 - speed_ratio) + 20))
+        base_interval = max(20, int(300 * (1.0 - speed_ratio) + 20))
         if self.animation_period is not None and self.animation_period > 0:
             base_interval = max(10, int((self.animation_period / max(1, len(self.animation_speeds))) * 1000 / speed_value))
         return max(1, int(base_interval / speed_value))
@@ -724,7 +734,7 @@ class OrbitDesigner(QWidget):
             exact_orbit_point = unit_node * r_node_km
 
             node_line_points = np.array([[0, 0, 0], exact_orbit_point], dtype=np.float32)
-            node_item = gl.GLLinePlotItem(pos=node_line_points, color=ascending_node_vector_color, width=4, glOptions='opaque')
+            node_item = gl.GLLinePlotItem(pos=node_line_points, color=ascending_node_vector_color, width=6, glOptions='opaque')
             self._add_item(node_item, track_annotation=True)
 
             ascending_node_point = gl.GLScatterPlotItem(
@@ -764,7 +774,7 @@ class OrbitDesigner(QWidget):
         perigee_line = self.orbit.get_perigee_line() * 1e-3
         if perigee_line is not None and self.orbit.orbitalElements.eccentricity != 0.0:
             perigee_line_points = np.array([[0, 0, 0], perigee_line], dtype=np.float32)
-            perigee_item = gl.GLLinePlotItem(pos=perigee_line_points, color=perigee_line_color, width=4, glOptions='opaque')
+            perigee_item = gl.GLLinePlotItem(pos=perigee_line_points, color=perigee_line_color, width=6, glOptions='opaque')
             self._add_item(perigee_item, track_annotation=True)
 
             if self.orbit.orbitalElements.arg_perigee != 0.0:
@@ -788,7 +798,7 @@ class OrbitDesigner(QWidget):
             true_anomaly_line = gl.GLLinePlotItem(
                 pos=np.array([[0, 0, 0], true_anomaly_vector], dtype=np.float32),
                 color=true_anomaly_vector_color,
-                width=3,
+                width=6,
                 glOptions='opaque',
             )
             self._add_item(true_anomaly_line, track_annotation=True)
@@ -832,7 +842,7 @@ class OrbitDesigner(QWidget):
             help_vector_item = gl.GLLinePlotItem(
                 pos=np.array([exact_orbit_point, exact_orbit_point + v_equator], dtype=np.float32),
                 color=inclination_vector_color,
-                width=4,
+                width=6,
                 glOptions='opaque',
             )
             self._add_item(help_vector_item, track_annotation=True)
@@ -897,7 +907,7 @@ class OrbitDesigner(QWidget):
             ], dtype=np.float32)
 
             p_node_line_pts = np.array([[0, 0, 0], perturbed_node_vec], dtype=np.float32)
-            p_node_item = gl.GLLinePlotItem(pos=p_node_line_pts, color=drift_raan_color, width=2, glOptions='opaque')
+            p_node_item = gl.GLLinePlotItem(pos=p_node_line_pts, color=drift_raan_color, width=6, glOptions='opaque')
             self.view.addItem(p_node_item)
             self.perturbed_annotations_items.append(p_node_item)
 
@@ -930,7 +940,7 @@ class OrbitDesigner(QWidget):
             perturbed_perigee_vec = perturbed_perigee_dir * radius_val
 
             p_perigee_line_pts = np.array([[0, 0, 0], perturbed_perigee_vec], dtype=np.float32)
-            p_perigee_item = gl.GLLinePlotItem(pos=p_perigee_line_pts, color=drift_omega_color, width=2, glOptions='opaque')
+            p_perigee_item = gl.GLLinePlotItem(pos=p_perigee_line_pts, color=drift_omega_color, width=6, glOptions='opaque')
             self.view.addItem(p_perigee_item)
             self.perturbed_annotations_items.append(p_perigee_item)
 
