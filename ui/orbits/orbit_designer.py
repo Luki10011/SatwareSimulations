@@ -3,6 +3,7 @@ from typing import Dict, Optional
 
 import numpy as np
 import pyqtgraph.opengl as gl
+import datetime
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (QFileDialog, 
                              QHBoxLayout, 
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (QFileDialog,
                              QPushButton, 
                              QButtonGroup,
                              QVBoxLayout)
+from pyqtgraph.opengl import GLTextItem
 
 from core.physics.dataclasses.orbital_data import OrbitalElements
 from core.physics.orbits import Orbit
@@ -23,6 +25,8 @@ from ui.orbits.components.characteristics_tab import OrbitCharacteristicsTab
 from utils.constants import CONSTANTS
 import json
 from utils.configuration import dt
+from PyQt6.QtGui import QFont, QMatrix4x4   
+from utils.rotations import datetime_to_julian_date, get_initial_gmst
 
 from utils.rotations import get_pqw_to_eci_matrix
 
@@ -47,8 +51,12 @@ class OrbitDesigner(QWidget):
         self.earth = None
         self.grid = None
         self.view = None
-        self.prev_controls = None
+
         self.eci_vectors: list[gl.GLLinePlotItem] = []
+        self.ecef_vectors: list[gl.GLLinePlotItem] = []
+        self.eci_labels: list[gl.GLTextItem] = []
+        self.ecef_labels: list[gl.GLTextItem] = []
+        
         self.orbit_artists: list[object] = []
         self.orbit_annotation_items: list[object] = []
         self.controls: Optional[OrbitControlsWidget] = None
@@ -62,8 +70,18 @@ class OrbitDesigner(QWidget):
         self.animation_period = None
         self.perturbed_annotations_items = []
         self.dt = dt
+        now = datetime.datetime.now(datetime.timezone.utc)
+        current_jd = datetime_to_julian_date(now)
+        
+        self.initial_gmst = get_initial_gmst(current_jd)
+        print(self.initial_gmst)
+        self.current_ecef_rotation = self.initial_gmst
+    
+        self.total_steps_elapsed = 0
 
         self.setup_view()
+
+
 
     def setup_view(self) -> None:
         """Create the main window layout and initialize the 3D scene with top tab navigation."""
@@ -134,6 +152,24 @@ class OrbitDesigner(QWidget):
             self.view.addItem(axis)
             axis.setVisible(False)
 
+        self.eci_labels = OrbitSceneHelper.create_eci_labels()
+        for label in self.eci_labels:
+            self.view.addItem(label)
+            label.setVisible(False)
+
+        self.ecef_vectors = OrbitSceneHelper.create_ecef_vectors()
+        for axis in self.ecef_vectors:
+            self.view.addItem(axis)
+            axis.setVisible(False)
+
+        self.ecef_labels = OrbitSceneHelper.create_ecef_labels()
+        for label in self.ecef_labels:
+            self.view.addItem(label)
+            label.setVisible(False)
+
+        self._ensure_ECEF_orientation(self.current_ecef_rotation)
+
+
         self.view.setCameraPosition(distance=20000, elevation=30, azimuth=30)
         self.view.setCameraParams()
         self.view.opts["glOptions"] = "opaque"
@@ -159,7 +195,8 @@ class OrbitDesigner(QWidget):
                 self.chars_controls.update_characteristics(
                     orbital_elements=self.orbit.orbitalElements, 
                     eci_positions=eci_positions,
-                    times=times)
+                    times=times,
+                    initial_gmst=self.initial_gmst)
 
     def _set_camera_limits(self, min_dist: float, max_dist: float):
         """Set the minimum and maximum camera distance for zooming in/out."""
@@ -181,6 +218,44 @@ class OrbitDesigner(QWidget):
 
         self.view.wheelEvent = custom_wheel_event
 
+    def _ensure_ECEF_orientation(self, angle_deg):
+
+        self.earth.resetTransform()
+        transform = QMatrix4x4()
+        transform.rotate(angle_deg, 0.0, 0.0, 1.0)
+        self.earth.setTransform(transform)
+        
+        if hasattr(self, 'ecef_vectors'):
+            for vector in self.ecef_vectors:
+                vector.resetTransform()
+                vector.rotate(angle_deg, 0, 0, 1)
+            for label in self.ecef_labels:
+                label.resetTransform()
+                label.rotate(angle_deg, 0, 0, 1)
+        
+        self.view.update()
+
+
+    # def _update_ecef_vectors(self, theta: float) -> None:
+    #     """Rotate ECEF vectors and their labels around the Z axis by angle theta."""
+    #     length = 20000.0
+    #     cos_t = np.cos(theta)
+    #     sin_t = np.sin(theta)
+        
+    #     x_tip = np.array([length * cos_t, length * sin_t, 0.0], dtype=np.float32)
+    #     y_tip = np.array([-length * sin_t, length * cos_t, 0.0], dtype=np.float32)
+    #     z_tip = np.array([0.0, 0.0, length], dtype=np.float32) # Oś Z pozostaje nieruchoma
+        
+    #     if len(self.ecef_vectors) == 3:
+    #         self.ecef_vectors[0].setData(pos=np.array([[0, 0, 0], x_tip], dtype=np.float32))
+    #         self.ecef_vectors[1].setData(pos=np.array([[0, 0, 0], y_tip], dtype=np.float32))
+    #         self.ecef_vectors[2].setData(pos=np.array([[0, 0, 0], z_tip], dtype=np.float32))
+            
+    #     if len(self.ecef_labels) == 3:
+    #         self.ecef_labels[0].setData(pos=x_tip * 1.05)
+    #         self.ecef_labels[1].setData(pos=y_tip * 1.05)
+    #         self.ecef_labels[2].setData(pos=z_tip * 1.05)
+
     def _connect_controls(self) -> None:
         """Bind UI controls to the corresponding behavior methods."""
         self.controls.generate_button.clicked.connect(self.update_plot)
@@ -197,6 +272,9 @@ class OrbitDesigner(QWidget):
         self.controls.save_button.clicked.connect(self._save_orbit_to_file)
         self.j2_controls.btn_propagate.clicked.connect(self._on_propagate_clicked)
         self.j2_controls.btn_clear.clicked.connect(self._clear_perturbed_orbit)
+        self.controls.chk_grid.stateChanged.connect(lambda state: self.toggle_visibility(self.grid, state))
+        self.controls.chk_eci.stateChanged.connect(self.toggle_eci_visibility)
+        self.controls.chk_ecef.stateChanged.connect(self.toggle_ecef_visibility)
 
     def _on_propagate_clicked(self):
         if self.orbit is None or self.j2_controls.J2_perturbator is None:
@@ -305,6 +383,7 @@ class OrbitDesigner(QWidget):
         self.j2_controls.reset()
         self.btn_chars.setEnabled(False)
         self.view.setCameraPosition(distance=20000, elevation=30, azimuth=30)
+        self.total_steps_elapsed = 0
         self.view.update()
 
     def load_predefined_orbit(self, orbit_data: Dict[str, float]) -> None:
@@ -377,10 +456,21 @@ class OrbitDesigner(QWidget):
 
 
     def toggle_eci_visibility(self) -> None:
-        """Show or hide the ECI coordinate axes."""
+        """Show or hide the ECI coordinate axes and their labels."""
         is_visible = self.controls.chk_eci.isChecked()
         for vector in self.eci_vectors:
             vector.setVisible(is_visible)
+        for label in self.eci_labels:  
+            label.setVisible(is_visible)
+        self.view.update()
+
+    def toggle_ecef_visibility(self) -> None:
+        """Show or hide the ECEF coordinate axes and their labels."""
+        is_visible = self.controls.chk_ecef.isChecked()
+        for vector in self.ecef_vectors:
+            vector.setVisible(is_visible)
+        for label in self.ecef_labels:
+            label.setVisible(is_visible)
         self.view.update()
 
     def toggle_visibility(self, gl_item, state: int) -> None:
@@ -437,12 +527,17 @@ class OrbitDesigner(QWidget):
         """Stop the animation and reset the marker to the initial orbit position."""
         self.animation_timer.stop()
         self.animation_index = 0
+        self.current_ecef_rotation = self.initial_gmst
+        self._ensure_ECEF_orientation(self.current_ecef_rotation)
         if self.animation_points is not None and len(self.animation_points) > 0:
             self._set_marker_position(self.animation_points[0])
         if self.animation_marker is not None:
             self.animation_marker.setVisible(False)
         if self.controls is not None:
             self.controls.animate_button.setText("Start Animation")
+
+        self.total_steps_elapsed = 0
+
         self.view.update()
 
     def _animation_interval(self) -> int:   
@@ -501,11 +596,22 @@ class OrbitDesigner(QWidget):
             progress = self.animation_index / max(1, self.animation_step_count)
             orbit_index = int(np.round(progress * (len(self.animation_points) - 1)))
             position = self.animation_points[orbit_index]
+            
         self.animation_marker.setData(
             pos=np.array([position], dtype=np.float32),
             size=12,
             color=(1.0, 1.0, 1.0, 1.0),
         )
+        
+        if self.animation_period is not None and self.animation_step_count > 0:
+            dt = self.animation_period / max(1, self.animation_step_count) #[cite: 3]
+    
+            angular_velocity_deg_per_sec = 360.0 / 86164.0905
+            
+            delta_angle = angular_velocity_deg_per_sec * dt
+            self.current_ecef_rotation = (self.current_ecef_rotation + delta_angle) % 360.0
+            self._ensure_ECEF_orientation(self.current_ecef_rotation)
+
         self.animation_fraction = 0.0
         self.animation_timer.start(self._animation_interval())
         self.view.update()
@@ -521,6 +627,18 @@ class OrbitDesigner(QWidget):
 
     def update_plot(self) -> None:
         """Validate inputs, build the orbit, and draw the resulting scene."""
+
+        # now = datetime.datetime.now(datetime.timezone.utc)
+        # current_jd = datetime_to_julian_date(now)
+        
+        # self.initial_gmst = get_initial_gmst(current_jd)
+        
+        # if self.earth is not None:
+        #     initial_gmst = getattr(self, 'initial_gmst', 0.0)
+        #     transform = QMatrix4x4()
+        #     transform.rotate(np.radians(initial_gmst), 0.0, 0.0, 1.0)
+        #     self.earth.setTransform(transform)
+
         self.controls.chk_orbit_plane.setEnabled(False)
         self.controls.chk_orbital_elements.setEnabled(False)
         self.btn_chars.setEnabled(False)
@@ -560,7 +678,7 @@ class OrbitDesigner(QWidget):
         """Remove earlier orbit visuals while preserving Earth, grid, and ECI axes."""
         self.stop_animation()
         for item in list(self.view.items):
-            if item in (self.earth, self.grid, *self.eci_vectors):
+            if item in (self.earth, self.grid, *self.eci_vectors, *self.ecef_vectors, *self.eci_labels, *self.ecef_labels):
                 continue
             self.view.removeItem(item)
             if hasattr(item, "_deleteGL"):
@@ -582,6 +700,8 @@ class OrbitDesigner(QWidget):
         self.animation_period = self.orbit.orbital_period
         self.animation_index = 0
         self.animation_step_count = max(200, min(2000, len(points)))
+        self.total_steps_elapsed = 0
+
         self._ensure_animation_marker()
         if len(points) > 0:
             self.animation_marker.setData(
@@ -865,7 +985,7 @@ class OrbitDesigner(QWidget):
                 self._add_item(inclination_label, track_annotation=True)
 
     def _draw_perturbed_orbit_annotations(self, new_Omega: float, new_omega: float) -> None:
-        """Draw lines and angles for angular shifts (Delta Omega and Delta omega) for J2."""
+        """Draw lines and full arcs for the new ascending node (equatorial plane) and new perigee (orbital plane)."""
         
         if hasattr(self, 'perturbed_annotations_items'):
             for item in self.perturbed_annotations_items:
@@ -876,93 +996,93 @@ class OrbitDesigner(QWidget):
         if self.orbit is None:
             return
 
-        drift_raan_color = (1.0, 0.85, 0.0, 1.0)      # Złoty dla ΔΩ
-        drift_omega_color = (1.0, 0.3, 0.3, 1.0)      # Jasnoczerwony dla Δω
-        radius_val = 5000.0
+        drift_raan_color = (1.0, 0.85, 0.0, 1.0)      # Złoty dla Ω(t)
+        drift_omega_color = (1.0, 0.3, 0.3, 1.0)      # Jasnoczerwony dla ω(t)
         
         inclination = self.orbit.orbitalElements.inclination
         eccentricity = self.orbit.orbitalElements.eccentricity
-        orig_raan = self.orbit.orbitalElements.raan
-        orig_omega = self.orbit.orbitalElements.arg_perigee
         
         EPSILON = 1e-6
-        VISUAL_THRESHOLD = 1e-6  
-        
         is_equatorial = (inclination < EPSILON) or np.isclose(inclination, np.pi, atol=EPSILON)
 
-        delta_Omega = np.arctan2(np.sin(new_Omega - orig_raan), np.cos(new_Omega - orig_raan))
-        delta_omega = np.arctan2(np.sin(new_omega - orig_omega), np.cos(new_omega - orig_omega))
+        orig_perigee_raw = self.orbit.get_perigee_line() * 1e-3
+        r_p = np.linalg.norm(orig_perigee_raw)
+        
+        if r_p < 1e-5:
+            r_p = 5000.0 
 
-        if not is_equatorial and abs(delta_Omega) >= VISUAL_THRESHOLD:
-            orig_node_vec = np.array([
-                radius_val * np.cos(orig_raan),
-                radius_val * np.sin(orig_raan),
-                0.0
-            ], dtype=np.float32)
+        if eccentricity > EPSILON:
+            a = r_p / (1.0 - eccentricity)
+            r_node = a * (1.0 - eccentricity**2) / (1.0 + eccentricity * np.cos(new_omega))
+        else:
+            r_node = r_p
 
+        arc_radius = 5000.0
+
+        if not is_equatorial:
             perturbed_node_vec = np.array([
-                radius_val * np.cos(new_Omega),
-                radius_val * np.sin(new_Omega),
+                r_node * np.cos(new_Omega),
+                r_node * np.sin(new_Omega),
                 0.0
             ], dtype=np.float32)
 
-            p_node_line_pts = np.array([[0, 0, 0], perturbed_node_vec], dtype=np.float32)
-            p_node_item = gl.GLLinePlotItem(pos=p_node_line_pts, color=drift_raan_color, width=6, glOptions='opaque')
+            # Linia węzła
+            p_node_item = gl.GLLinePlotItem(pos=np.array([[0, 0, 0], perturbed_node_vec], dtype=np.float32), 
+                                            color=drift_raan_color, width=6, glOptions='opaque')
             self.view.addItem(p_node_item)
             self.perturbed_annotations_items.append(p_node_item)
 
-            angle_item_raan, label_item_raan = OrbitSceneHelper.create_angle_arc(
-                orig_node_vec,
+            eci_x_vec = np.array([r_node, 0.0, 0.0], dtype=np.float32)
+            raan_arc, raan_label = OrbitSceneHelper.create_angle_arc(
+                eci_x_vec,
                 perturbed_node_vec,
-                radius=radius_val,
-                annotation="ΔΩ",
-                normal=np.array([0.0, 0.0, 1.0], dtype=np.float32),
+                radius=arc_radius,
+                annotation="Ω(t)",
+                normal=np.array([0.0, 0.0, 1.0], dtype=np.float32), # Normalna równika (oś Z)
                 color=drift_raan_color,
-                shortest_path=True  
+                shortest_path=True
             )
-            if angle_item_raan is not None:
-                self.view.addItem(angle_item_raan)
-                self.perturbed_annotations_items.append(angle_item_raan)
-            if label_item_raan is not None:
-                self.view.addItem(label_item_raan)
-                self.perturbed_annotations_items.append(label_item_raan)
+            if raan_arc is not None:
+                self.view.addItem(raan_arc)
+                self.perturbed_annotations_items.append(raan_arc)
+            if raan_label is not None:
+                self.view.addItem(raan_label)
+                self.perturbed_annotations_items.append(raan_label)
 
-        if eccentricity > EPSILON and abs(delta_omega) >= VISUAL_THRESHOLD:
-            orig_perigee_raw = self.orbit.get_perigee_line()
-            orig_perigee_norm = np.linalg.norm(orig_perigee_raw)
-            if orig_perigee_norm > 1e-5:
-                orig_perigee_vec = (orig_perigee_raw / orig_perigee_norm) * radius_val
-            else:
-                orig_perigee_vec = np.array([radius_val, 0, 0], dtype=np.float32)
-
+        if eccentricity > EPSILON:
             R_perturbed = get_pqw_to_eci_matrix(new_Omega, inclination, new_omega)
             perturbed_perigee_dir = R_perturbed @ np.array([1.0, 0.0, 0.0], dtype=np.float32)
-            perturbed_perigee_vec = perturbed_perigee_dir * radius_val
+            perturbed_perigee_vec = perturbed_perigee_dir * r_p
 
-            p_perigee_line_pts = np.array([[0, 0, 0], perturbed_perigee_vec], dtype=np.float32)
-            p_perigee_item = gl.GLLinePlotItem(pos=p_perigee_line_pts, color=drift_omega_color, width=6, glOptions='opaque')
+            p_perigee_item = gl.GLLinePlotItem(pos=np.array([[0, 0, 0], perturbed_perigee_vec], dtype=np.float32), 
+                                               color=drift_omega_color, width=6, glOptions='opaque')
             self.view.addItem(p_perigee_item)
             self.perturbed_annotations_items.append(p_perigee_item)
 
-            perturbed_plane_normal = np.cross(orig_perigee_vec, perturbed_perigee_vec)
-            perturbed_plane_normal = perturbed_plane_normal / np.linalg.norm(perturbed_plane_normal)
+            new_plane_normal = R_perturbed @ np.array([0.0, 0.0, 1.0], dtype=np.float32)
+            new_plane_normal = new_plane_normal / np.linalg.norm(new_plane_normal)
 
-            angle_item_omega, label_item_omega = OrbitSceneHelper.create_angle_arc(
-                orig_perigee_vec,
+            if not is_equatorial:
+                node_dir = perturbed_node_vec / np.linalg.norm(perturbed_node_vec)
+                node_start_vec = node_dir * r_p
+            else:
+                node_start_vec = np.array([r_p, 0.0, 0.0], dtype=np.float32)
+
+            omega_arc, omega_label = OrbitSceneHelper.create_angle_arc(
+                node_start_vec,
                 perturbed_perigee_vec,
-                radius=radius_val,
-                annotation="Δω",
-                normal=perturbed_plane_normal,
+                radius=arc_radius * 1.2,
+                annotation="ω(t)",
+                normal=new_plane_normal, # Normalna nowej płaszczyzny orbity!
                 color=drift_omega_color,
-                shortest_path=True  
+                shortest_path=True
             )
-
-            if angle_item_omega is not None:
-                self.view.addItem(angle_item_omega)
-                self.perturbed_annotations_items.append(angle_item_omega)
-            if label_item_omega is not None:
-                self.view.addItem(label_item_omega)
-                self.perturbed_annotations_items.append(label_item_omega)
+            if omega_arc is not None:
+                self.view.addItem(omega_arc)
+                self.perturbed_annotations_items.append(omega_arc)
+            if omega_label is not None:
+                self.view.addItem(omega_label)
+                self.perturbed_annotations_items.append(omega_label)
 
     def _add_item(self, item, track_annotation: bool = False) -> None:
         """Add an item to the scene and keep track of it for cleanup."""

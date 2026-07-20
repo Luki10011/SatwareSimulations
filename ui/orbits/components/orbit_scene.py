@@ -25,6 +25,44 @@ class OrbitSceneHelper:
         return [x_axis, y_axis, z_axis]
 
     @staticmethod
+    def create_ecef_vectors() -> list[gl.GLLinePlotItem]:
+        """Create the ECEF coordinate axes with distinctive colors."""
+        length = 20000.0
+        width = 4.0
+
+        # Kolory: Pomarańczowy (X), Żółty (Y), Fuksja (Z)
+        x_points = np.array([[0, 0, 0], [length, 0, 0]], dtype=np.float32)
+        x_axis = gl.GLLinePlotItem(pos=x_points, color=(1.0, 0.6, 0.0, 1.0), width=width, glOptions='opaque')
+
+        y_points = np.array([[0, 0, 0], [0, length, 0]], dtype=np.float32)
+        y_axis = gl.GLLinePlotItem(pos=y_points, color=(0.9, 0.9, 0.0, 1.0), width=width, glOptions='opaque')
+
+        z_points = np.array([[0, 0, 0], [0, 0, length]], dtype=np.float32)
+        z_axis = gl.GLLinePlotItem(pos=z_points, color=(0.8, 0.0, 0.8, 1.0), width=width, glOptions='opaque')
+
+        return [x_axis, y_axis, z_axis]
+
+    @staticmethod
+    def create_eci_labels(length: float = 20000.0) -> list[gl.GLTextItem]:
+        """Create text labels for the static ECI frame axes."""
+        return [
+            gl.GLTextItem(pos=np.array([length * 1.05, 0, 0], dtype=np.float32), text="X_ECI", color=(255, 100, 100, 255)),
+            gl.GLTextItem(pos=np.array([0, length * 1.05, 0], dtype=np.float32), text="Y_ECI", color=(100, 255, 100, 255)),
+            gl.GLTextItem(pos=np.array([0, 0, length * 1.05], dtype=np.float32), text="Z_ECI", color=(100, 100, 255, 255))
+        ]
+
+    @staticmethod
+    def create_ecef_labels(length: float = 20000.0) -> list[gl.GLTextItem]:
+        """Create text labels for the rotating ECEF frame axes."""
+        return [
+            gl.GLTextItem(pos=np.array([length * 1.05, 0, 0], dtype=np.float32), text="X_ECEF", color=(255, 180, 50, 255)),
+            gl.GLTextItem(pos=np.array([0, length * 1.05, 0], dtype=np.float32), text="Y_ECEF", color=(220, 255, 50, 255)),
+            gl.GLTextItem(pos=np.array([0, 0, length * 1.05], dtype=np.float32), text="Z_ECEF", color=(255, 50, 255, 255))
+        ]
+
+
+
+    @staticmethod
     def create_earth() -> gl.GLMeshItem:
         rows = 1000
         cols = 1000
@@ -50,7 +88,8 @@ class OrbitSceneHelper:
                 for j in range(cols + 1):
                     lon_frac = j / cols
                     lon = 2.0 * np.pi * lon_frac
-                    x_pixel = int(lon_frac * (img_w - 1))
+                    u_texture = (lon_frac + 0.5) % 1.0
+                    x_pixel = int(u_texture * (img_w - 1))
 
                     x = radius * np.cos(lat) * np.cos(lon)
                     y = radius * np.cos(lat) * np.sin(lon)

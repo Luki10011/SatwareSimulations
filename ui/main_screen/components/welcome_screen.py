@@ -1,6 +1,10 @@
 from PyQt6.QtWidgets import QFormLayout, QHBoxLayout, QSplitter, QStyle, QWidget, QVBoxLayout, QLabel, QPushButton
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QPainter, QPixmap, QColor
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QPixmap
+
+
 
 class HeaderImageWidget(QWidget):
     """Widżet górnego panelu, który rysuje zdjęcie i nakłada filtr kontrastowy."""
@@ -17,16 +21,6 @@ class HeaderImageWidget(QWidget):
         else:
             painter.fillRect(self.rect(), QColor(30, 30, 30))
         super().paintEvent(event)
-
-class QuickAccessItem(QWidget):
-    from PyQt6.QtWidgets import (
-    QWidget,
-    QLabel,
-    QHBoxLayout,
-    QVBoxLayout
-)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QPixmap
 
 
 class QuickAccessItem(QWidget):

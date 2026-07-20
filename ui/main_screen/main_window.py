@@ -3,7 +3,7 @@ import os
 from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QMainWindow, QMessageBox, QWidget, QVBoxLayout, 
                              QLabel, QStackedWidget, QPushButton, QStyle, QProgressBar)
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QAction
+from PyQt6.QtGui import QFont, QAction, QMatrix4x4
 
 from ui.main_screen.components.predefined_orbit import PredefinedOrbitDialog
 from ui.main_screen.components.welcome_screen import MainScreenWelcome
@@ -110,8 +110,6 @@ class MainWindow(QMainWindow):
         experiment_menu.addAction(load_experment_from_file)
 
         
-
-
     def close_application(self):
         if self._is_switching:
             return

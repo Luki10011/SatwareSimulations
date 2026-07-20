@@ -116,8 +116,16 @@ class OrbitControlsWidget(QWidget):
         self.chk_grid = QCheckBox("Show Equatorial Plane")
         self.chk_grid.setChecked(False)
 
+        self.chk_ecef = QCheckBox("Show ECEF Vectors")
+        self.chk_ecef.setChecked(False)
+
         self.chk_eci = QCheckBox("Show ECI Vectors")
         self.chk_eci.setChecked(False)
+
+        self.vectors_layout = QHBoxLayout()
+        self.vectors_layout.addWidget(self.chk_eci)
+        self.vectors_layout.addWidget(self.chk_ecef)
+
 
         self.chk_earth = QCheckBox("Show Earth")
         self.chk_earth.setChecked(True)
@@ -130,8 +138,8 @@ class OrbitControlsWidget(QWidget):
         self.chk_orbital_elements.setChecked(False)
         self.chk_orbital_elements.setEnabled(False)
 
+        form_layout.addRow(self.vectors_layout)
         form_layout.addRow(self.chk_grid)
-        form_layout.addRow(self.chk_eci)
         form_layout.addRow(self.chk_earth)
 
         self.animation_section = QWidget(self)
@@ -226,6 +234,7 @@ class OrbitControlsWidget(QWidget):
         self.chk_earth.setChecked(True)
         self.chk_orbit_plane.setChecked(False)
         self.chk_orbital_elements.setChecked(False)
+        self.chk_ecef.setChecked(False)
 
         # Reset animation controls
         self.animate_button.setText("Start Animation")

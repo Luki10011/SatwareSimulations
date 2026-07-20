@@ -80,13 +80,16 @@ class OrbitCharacteristicsTab(QWidget):
             
         return val_field
 
-    def update_characteristics(self, orbital_elements : OrbitalElements, eci_positions = None, times = None):
+    def update_characteristics(self, orbital_elements : OrbitalElements, eci_positions = None, times = None, initial_gmst = None):
         """
         Updates fields based on Keplerian elements.
         Expects orbital_elements to have: semi_major_axis (in m or km), eccentricity, inclination (in rad).
         """
         if orbital_elements is None:
             return
+        
+        if initial_gmst is not None:
+            self.initial_gmst = initial_gmst
         
         self.last_orbital_elements = orbital_elements
         self.last_times = times
@@ -163,7 +166,7 @@ class OrbitCharacteristicsTab(QWidget):
         if self.last_eci_positions is None:
             return
             
-        self.ground_track_window = GroundTrackWindow(self.last_eci_positions, self.last_times)
+        self.ground_track_window = GroundTrackWindow(self.last_eci_positions, self.last_times, self.initial_gmst)
         self.ground_track_window.show()
         
 
