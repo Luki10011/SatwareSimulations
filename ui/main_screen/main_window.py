@@ -101,7 +101,7 @@ class MainWindow(QMainWindow):
         satellite_menu.addAction(load_satellite_action)
 
 
-        experiment_menu = menu_bar.addMenu("Experimnets")
+        experiment_menu = menu_bar.addMenu("Experiments")
 
         create_new_experiment_action = QAction("&Create new Experiment", self)
         load_experment_from_file = QAction("&Load Experiment from File", self)

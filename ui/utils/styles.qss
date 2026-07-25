@@ -330,3 +330,44 @@ QMenu::item {
     margin: 2px 4px;
     font-size: 10pt;
 }
+
+QSlider::groove:horizontal {
+    border: none;
+    height: 4px; /* Cienki pasek */
+    background: #555555;
+    border-radius: 2px;
+}
+
+QSlider::sub-page:horizontal {
+    background: #4772DF; /* Twój nowy niebieski kolor */
+    border-radius: 2px;
+}
+
+QSlider::add-page:horizontal {
+    background: #555555; /* Szara, niewypełniona część */
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background: #4772DF; /* Niebieski środek kropki */
+    border: 4px solid #333333; /* Ciemnoszara obwódka kropki */
+    width: 10px; /* Szerokość samego środka */
+    height: 10px; /* Wysokość samego środka */
+    margin: -7px 0; /* Wypuszczenie kropki poza cienki pasek groove */
+    border-radius: 9px; /* (width + 2*border) / 2 -> idealne kółko */
+}
+
+/* --- Stan wyłączony (Nieaktywny) --- */
+    QSlider::sub-page:horizontal:disabled {
+        background: #666666; /* Szary pasek postępu */
+    }
+    QSlider::handle:horizontal:disabled {
+        background: #666666; /* Szary środek kropki */
+        border: 4px solid #444444; /* Jaśniejsza, szara obwódka */
+    }
+    QSlider::add-page:horizontal:disabled {
+        background: #444444; /* Ciemniejsza reszta paska, by uchwyt był widoczny */
+    }
+    QSlider::groove:horizontal:disabled {
+        background: #444444;
+    }

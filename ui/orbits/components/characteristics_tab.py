@@ -128,9 +128,7 @@ class OrbitCharacteristicsTab(QWidget):
         self.lbl_v_apogee.setText(f"{v_a:.4f}")
         self.lbl_energy.setText(f"{energy:.3f}")
 
-        if h_p < 0:
-            orbit_type = "Suborbital / Destructive (Re-entry)"
-        elif h_a < 2000:
+        if h_a < 2000:
             orbit_type = "LEO (Low Earth Orbit)"
         elif h_p >= 35500 and h_a <= 36000 and e < 0.01:
             orbit_type = "GEO (Geostationary Earth Orbit)"

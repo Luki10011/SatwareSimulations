@@ -69,7 +69,7 @@ def datetime_to_julian_date(dt: datetime.datetime) -> float:
     Konwertuje obiekt datetime (wymagany UTC) na Dni Juliańskie (Julian Date).
     """
     # Upewniamy się, że obiekt datetime ma przypisaną strefę UTC
-    if dt.tzinfo is None:
+    if dt.tzinfo is None:   
         # Jeśli obiekt nie ma strefy, bezpiecznie zakładamy, że to UTC
         dt = dt.replace(tzinfo=datetime.timezone.utc)
     else:

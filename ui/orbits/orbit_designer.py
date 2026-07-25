@@ -413,6 +413,12 @@ class OrbitDesigner(QWidget):
                 self.controls.input_RAAN.setText(str(data["raan"]))
                 self.controls.input_true_anomaly.setText(str(data["true_anomaly"]))
 
+                orbital_values = self._validate_inputs()
+                if orbital_values is None:
+                    QMessageBox.warning(self, "Invalid file", f"The orbit file is invalid, please check the file's content!")
+                    self.controls.reset_inputs()
+                    return
+
                 file.close()
                 QMessageBox.information(self, "Orbit Loaded", f"The orbit has been successfully loaded from:\n{file_path}")
             self.update_plot()
@@ -628,17 +634,8 @@ class OrbitDesigner(QWidget):
     def update_plot(self) -> None:
         """Validate inputs, build the orbit, and draw the resulting scene."""
 
-        # now = datetime.datetime.now(datetime.timezone.utc)
-        # current_jd = datetime_to_julian_date(now)
+        self.clear_animation()
         
-        # self.initial_gmst = get_initial_gmst(current_jd)
-        
-        # if self.earth is not None:
-        #     initial_gmst = getattr(self, 'initial_gmst', 0.0)
-        #     transform = QMatrix4x4()
-        #     transform.rotate(np.radians(initial_gmst), 0.0, 0.0, 1.0)
-        #     self.earth.setTransform(transform)
-
         self.controls.chk_orbit_plane.setEnabled(False)
         self.controls.chk_orbital_elements.setEnabled(False)
         self.btn_chars.setEnabled(False)

@@ -3,6 +3,6 @@
     "eccentricity": 0.2,
     "inclination": 45.0,
     "raan": 100.0,
-    "arg_perigee": 35.0,
+    "arg_perigee": "asd",
     "true_anomaly": 70.0
 }
