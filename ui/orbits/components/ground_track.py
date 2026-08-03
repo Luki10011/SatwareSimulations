@@ -57,9 +57,12 @@ class GroundTrackWindow(QWidget):
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
+        
 
         # --- PANEL KONTROLNY (GÓRNY PAS) ---
         ctrl_layout = QHBoxLayout()
+
+        
 
         lbl_spin = QLabel("Number of Orbits:")
         lbl_spin.setStyleSheet(
@@ -73,7 +76,7 @@ class GroundTrackWindow(QWidget):
         self.spin_orbits.valueChanged.connect(self._on_orbits_changed)
 
         lbl_limit_info = QLabel(f"(Within 24 hours at most: {self.max_orbits_24h})")
-        lbl_limit_info.setStyleSheet("color: #7a7a7a; font-size: 11px;")
+        lbl_limit_info.setStyleSheet("color: #7a7a7a; font-size: 11px; background-color: #2c2c2c;")
 
         ctrl_layout.addWidget(lbl_spin)
         ctrl_layout.addWidget(self.spin_orbits)
@@ -93,10 +96,10 @@ class GroundTrackWindow(QWidget):
         view_box.setLimits(xMin=-180, xMax=180, yMin=-90, yMax=90)
 
         self.plot_widget.setLabel(
-            "bottom", "Długość geograficzna (Longitude)", units="°"
+            "bottom", "Longitude", units="°"
         )
         self.plot_widget.setLabel(
-            "left", "Szerokość geograficzna (Latitude)", units="°"
+            "left", "Latitude", units="°"
         )
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
 
@@ -111,6 +114,7 @@ class GroundTrackWindow(QWidget):
         )
         self.lbl_info.setStyleSheet("color: #7a7a7a; font-size: 11px;")
         layout.addWidget(self.lbl_info)
+        
 
     def _load_map_background(self, image_path: str):
         if not os.path.exists(image_path):

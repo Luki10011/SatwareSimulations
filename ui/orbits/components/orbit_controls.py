@@ -192,7 +192,7 @@ class OrbitControlsWidget(QWidget):
         form_layout.addRow(self.save_button)
 
 
-
+    
     def create_input_with_info(self, placeholder_text: str, tooltip_html: str) -> tuple[QLineEdit, QWidget]:
         """
         Creates a text input field with an attached 'ⓘ' info icon.

@@ -9,6 +9,7 @@ from ui.main_screen.components.predefined_orbit import PredefinedOrbitDialog
 from ui.main_screen.components.welcome_screen import MainScreenWelcome
 from ui.orbits.orbit_designer import OrbitDesigner  
 from ui.main_screen.components.loading_screen import LoadingScreen
+from ui.satellite.satellite_configurator import SatelliteConfigurator
 from utils.constants import ORBITS_DATA
 
 
@@ -48,7 +49,7 @@ class MainWindow(QMainWindow):
         # Index 0: Welcome screen
         self.welcome_screen = MainScreenWelcome()
         self.welcome_screen.orbit_item.connectClick(self.show_orbit_designer)
-        self.welcome_screen.satellite_item.connectClick(lambda : print("Satellite item clicked"))
+        self.welcome_screen.satellite_item.connectClick(self.show_satellite_configurator)
         self.welcome_screen.experiment_item.connectClick(lambda : print("Experiment item clicked"))
         self.central_stacked_widget.addWidget(self.welcome_screen)
   
@@ -59,6 +60,10 @@ class MainWindow(QMainWindow):
         # Index 2: Orbit Designer screen
         self.orbit_designer_screen = OrbitDesigner()
         self.central_stacked_widget.addWidget(self.orbit_designer_screen)
+
+        # Index 3: Satellite Configurator
+        self.satellite_configurator = SatelliteConfigurator()
+        self.central_stacked_widget.addWidget(self.satellite_configurator)
         
         self.central_stacked_widget.setCurrentIndex(0)
 
@@ -95,6 +100,7 @@ class MainWindow(QMainWindow):
 
         satellite_menu = menu_bar.addMenu("&Satellite Tools")
         satellite_action = QAction("&Create new Satellite Configuration", self)
+        satellite_action.triggered.connect(self.show_satellite_configurator)
         satellite_menu.addAction(satellite_action)
 
         load_satellite_action = QAction("&Load Satellite Configuration from File", self)
@@ -109,7 +115,23 @@ class MainWindow(QMainWindow):
         experiment_menu.addAction(create_new_experiment_action)
         experiment_menu.addAction(load_experment_from_file)
 
-        
+
+    def show_satellite_configurator(self):
+        if self._is_switching:
+            return
+
+        if self.central_stacked_widget.currentIndex() == 3:
+            reply = QMessageBox.question(self, "Satellite Configurator", "You are returning to the satellite configurator. Any unsaved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+            if reply == QMessageBox.StandardButton.Yes:
+                self.satellite_configurator.reset()
+            else:
+                return
+
+        self._run_safe_transition(heavy_action= lambda : self.central_stacked_widget.setCurrentIndex(3))
+
+
+
     def close_application(self):
         if self._is_switching:
             return
@@ -132,8 +154,9 @@ class MainWindow(QMainWindow):
         try:
             if heavy_action:
                 heavy_action()
-            # OrbitDesigner index
-            self.central_stacked_widget.setCurrentIndex(2)
+            else:
+                # OrbitDesigner index
+                self.central_stacked_widget.setCurrentIndex(2)
         finally:
             self._is_switching = False
 
@@ -141,14 +164,16 @@ class MainWindow(QMainWindow):
         """Switches to welcome screen view."""
         if self._is_switching:
             return
-            
-        if self.central_stacked_widget.currentIndex() == 2:
+        
+        current_index = self.central_stacked_widget.currentIndex() 
+
+        if current_index in [2, 3]:
             reply = QMessageBox.question(self, "Returning to Welcome Screen", "You are returning to the welcome screen. Any unsaved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
                 self.orbit_designer_screen.reset_designer()
             else:
                 return
-        
+
         self.central_stacked_widget.setCurrentIndex(0)
 
     def show_orbit_designer(self):

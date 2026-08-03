@@ -94,7 +94,7 @@ class OrbitDesigner(QWidget):
         left_panel_layout.setSpacing(10)  # Odstęp między zakładkami a zawartością
 
         tab_layout = QHBoxLayout()
-        tab_layout.setSpacing(2)  # Ciasno spasowane przyciski-zakładki
+        tab_layout.setSpacing(2) 
         tab_layout.setContentsMargins(0, 0, 0, 5)
 
         self.btn_design = QPushButton("Design Orbit")
@@ -107,7 +107,7 @@ class OrbitDesigner(QWidget):
         tabs = [self.btn_design, self.btn_chars, self.btn_j2]
         for idx, btn in enumerate(tabs):
             btn.setCheckable(True)
-            btn.setFixedHeight(32)  # Stała, wygodna wysokość zakładki
+            btn.setFixedHeight(32)  
             self.tab_group.addButton(btn, idx)
             tab_layout.addWidget(btn)
 
