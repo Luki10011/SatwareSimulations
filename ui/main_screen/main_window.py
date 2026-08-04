@@ -3,7 +3,8 @@ import os
 from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QMainWindow, QMessageBox, QWidget, QVBoxLayout, 
                              QLabel, QStackedWidget, QPushButton, QStyle, QProgressBar)
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QAction, QMatrix4x4
+from PyQt6.QtGui import QColor, QFont, QAction, QMatrix4x4, QPalette
+import qdarktheme
 
 from ui.main_screen.components.predefined_orbit import PredefinedOrbitDialog
 from ui.main_screen.components.welcome_screen import MainScreenWelcome
@@ -204,6 +205,7 @@ class MainWindow(QMainWindow):
                 
                 def action():
                     self.orbit_designer_screen.load_predefined_orbit(elements)
+                    self.central_stacked_widget.setCurrentIndex(2)
 
                 self._run_safe_transition(heavy_action=action)
 
@@ -225,9 +227,33 @@ class MainWindow(QMainWindow):
 
             self._run_safe_transition(heavy_action=action)
 
+def apply_dark_palette(app: QApplication):
+    dark_palette = QPalette()
+
+    # Kolory tła i elementów tekstowych
+    dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
+    dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(212, 212, 212))
+    dark_palette.setColor(QPalette.ColorRole.Base, QColor(25, 25, 25))
+    dark_palette.setColor(
+        QPalette.ColorRole.AlternateBase, QColor(45, 45, 45)
+    )
+    dark_palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(255, 255, 255))
+    dark_palette.setColor(QPalette.ColorRole.ToolTipText, QColor(255, 255, 255))
+    dark_palette.setColor(QPalette.ColorRole.Text, QColor(212, 212, 212))
+    dark_palette.setColor(QPalette.ColorRole.Button, QColor(45, 45, 45))
+    dark_palette.setColor(QPalette.ColorRole.ButtonText, QColor(212, 212, 212))
+
+    # Kolory akcentu (pomarańczowy pasujący do śladu naziemnego)
+    dark_palette.setColor(QPalette.ColorRole.Highlight, QColor(255, 159, 41))
+    dark_palette.setColor(
+        QPalette.ColorRole.HighlightedText, QColor(0, 0, 0)
+    )
+
+    app.setPalette(dark_palette)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
+    apply_dark_palette(app)
     window.show()
     sys.exit(app.exec())

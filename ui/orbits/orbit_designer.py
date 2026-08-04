@@ -176,7 +176,9 @@ class OrbitDesigner(QWidget):
 
         splitter.addWidget(left_panel_container)
         splitter.addWidget(self.view)
+        splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 2)
+        splitter.setSizes([420, 780])
         layout.addWidget(splitter)
 
     def _on_tab_changed(self, index: int) -> None:

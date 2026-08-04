@@ -13,6 +13,102 @@ QLabel {
 }
 
 /* ==========================================================================
+   SEKCJA: GROUND TRACK (LIGHT MODE SAFE)
+   ========================================================================== */
+QWidget#groundTrackWindow {
+    background-color: #f8fafc;
+    color: #0f172a;
+}
+
+QLabel#groundTrackLabel,
+QLabel#groundTrackInfo {
+    color: #0f172a;
+    background: transparent;
+}
+
+QLabel#groundTrackLimitInfo {
+    color: #334155;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 6px;
+}
+
+QSpinBox#groundTrackSpin {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QSpinBox#groundTrackSpin::up-button,
+QSpinBox#groundTrackSpin::down-button {
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+}
+
+QSpinBox#groundTrackSpin::up-arrow {
+    border-bottom-color: #0f172a;
+}
+
+QSpinBox#groundTrackSpin::down-arrow {
+    border-top-color: #0f172a;
+}
+
+/* ==========================================================================
+   STYL DLA KONFIGURATORA SATELITY (TABS I PANELI)
+   ========================================================================== */
+QTabWidget#satelliteTabWidget {
+    background-color: #f8fafc;
+    color: #0f172a;
+}
+
+QTabWidget#satelliteTabWidget::pane {
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+QTabWidget#satelliteTabWidget QTabBar::tab {
+    background-color: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    padding: 6px 12px;
+    margin-right: 2px;
+}
+
+QTabWidget#satelliteTabWidget QTabBar::tab:selected {
+    background-color: #ffffff;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+QTabWidget#satelliteTabWidget QTabBar::tab:hover {
+    background-color: #e2e8f0;
+}
+
+QTabWidget#satelliteTabWidget QLabel {
+    color: #0f172a;
+}
+
+QLabel#satelliteHeaderLabel {
+    color: #0f172a;
+}
+
+QTextBrowser#satelliteSummaryBrowser {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+/* ==========================================================================
    STYL DLA PRZYCISKÓW (QPushButton)
    ========================================================================== */
 QPushButton {
@@ -371,3 +467,78 @@ QSlider::handle:horizontal {
     QSlider::groove:horizontal:disabled {
         background: #444444;
     }
+
+/* ==========================================================================
+   STYL DLA KONFIGURATORA SATELITY (QTabWidget - DARK FLUENT MODE)
+   ========================================================================== */
+QTabWidget#satelliteTabWidget {
+    background-color: transparent;
+    color: #ffffff;
+}
+
+/* Główny panel / kontener z zawartością aktywnej zakładki */
+QTabWidget#satelliteTabWidget::pane {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: #252525;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+/* Domyślny wygląd nieaktywnych zakładek */
+QTabWidget#satelliteTabWidget QTabBar::tab {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    padding: 8px 16px;
+    margin-right: 3px;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 10pt;
+}
+
+/* Najechanie myszką na nieaktywną zakładkę */
+QTabWidget#satelliteTabWidget QTabBar::tab:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+
+/* Aktywna / Wybrana zakładka */
+QTabWidget#satelliteTabWidget QTabBar::tab:selected {
+    background-color: #252525;
+    color: #ffffff;
+    font-weight: 600;
+    /* Charakterystyczny niebieski akcent (linia) na górze aktywnej zakładki */
+    border-top: 2px solid #4d7aff; 
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Wymuszenie białego tekstu dla etykiet i elementów wewnątrz zakładek */
+QTabWidget#satelliteTabWidget QLabel {
+    color: #ffffff;
+    background: transparent;
+}
+
+QLabel#satelliteHeaderLabel {
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 11pt;
+}
+
+QTextBrowser#satelliteSummaryBrowser {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 8px;
+}
+
+QSplitter::handle {
+    background-color: #2b2b2b;
+}
+
+QSplitter::handle:horizontal {
+    width: 2px;
+}

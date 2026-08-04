@@ -55,14 +55,58 @@ class GroundTrackWindow(QWidget):
         self.generate_track(num_orbits=1)
 
     def _init_ui(self):
+        # --- GLOBALNY STYL CIEMNEGO MOTYWU (QSS) ---
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e1e1e;
+                color: #a9b7c6;
+                font-family: 'Segoe UI', Arial, sans-serif;
+            }
+            QLabel {
+                background-color: transparent;
+            }
+            QSpinBox {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                border: 1px solid #3c3f41;
+                border-radius: 4px;
+                padding: 3px 6px;
+                font-weight: bold;
+            }
+            QSpinBox:hover {
+                border: 1px solid #ff9f29;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #383838;
+                border: none;
+                width: 16px;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background-color: #4f4f4f;
+            }
+            QSpinBox::up-arrow {
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-bottom: 5px solid #a9b7c6;
+                width: 0;
+                height: 0;
+            }
+            QSpinBox::down-arrow {
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid #a9b7c6;
+                width: 0;
+                height: 0;
+            }
+        """)
+
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
 
         # --- PANEL KONTROLNY (GÓRNY PAS) ---
         ctrl_layout = QHBoxLayout()
-
-        
+        ctrl_layout.setSpacing(10)
 
         lbl_spin = QLabel("Number of Orbits:")
         lbl_spin.setStyleSheet(
@@ -72,11 +116,12 @@ class GroundTrackWindow(QWidget):
         self.spin_orbits = QSpinBox()
         self.spin_orbits.setRange(1, self.max_orbits_24h)
         self.spin_orbits.setValue(1)
-
         self.spin_orbits.valueChanged.connect(self._on_orbits_changed)
 
-        lbl_limit_info = QLabel(f"(Within 24 hours at most: {self.max_orbits_24h})")
-        lbl_limit_info.setStyleSheet("color: #7a7a7a; font-size: 11px; background-color: #2c2c2c;")
+        lbl_limit_info = QLabel(
+            f"(Within 24 hours at most: {self.max_orbits_24h})"
+        )
+        lbl_limit_info.setStyleSheet("color: #7a7a7a; font-size: 11px;")
 
         ctrl_layout.addWidget(lbl_spin)
         ctrl_layout.addWidget(self.spin_orbits)
@@ -95,12 +140,8 @@ class GroundTrackWindow(QWidget):
         view_box = self.plot_widget.getViewBox()
         view_box.setLimits(xMin=-180, xMax=180, yMin=-90, yMax=90)
 
-        self.plot_widget.setLabel(
-            "bottom", "Longitude", units="°"
-        )
-        self.plot_widget.setLabel(
-            "left", "Latitude", units="°"
-        )
+        self.plot_widget.setLabel("bottom", "Longitude", units="°")
+        self.plot_widget.setLabel("left", "Latitude", units="°")
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
 
         styles = {"color": "#a9b7c6", "font-size": "11px"}
@@ -109,12 +150,9 @@ class GroundTrackWindow(QWidget):
 
         layout.addWidget(self.plot_widget)
 
-        self.lbl_info = QLabel(
-            "Ground Track of the satellite"
-        )
+        self.lbl_info = QLabel("Ground Track of the satellite")
         self.lbl_info.setStyleSheet("color: #7a7a7a; font-size: 11px;")
         layout.addWidget(self.lbl_info)
-        
 
     def _load_map_background(self, image_path: str):
         if not os.path.exists(image_path):
