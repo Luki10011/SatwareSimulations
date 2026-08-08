@@ -127,8 +127,7 @@ def calculate_total_inertia_tensor(
     return total
 
 
-from typing import Dict, Any, List
-import numpy as np
+
 
 def validate_satellite_configuration_data(data: Dict[str, Any]) -> Dict[str, str]:
     errors: Dict[str, str] = {}
@@ -137,6 +136,7 @@ def validate_satellite_configuration_data(data: Dict[str, Any]) -> Dict[str, str
     electromagnetic = data.get("electromagnetic", {})
     reaction_wheels = data.get("reaction_wheels", {})
 
+    print(f"Validating mass: {mechanical.get("mass")}")
     # --- MECHANICAL VALIDATION ---
     mass = _coerce_float(mechanical.get("mass"), 0.0)
     if not (MASS_MIN <= mass <= MASS_MAX):
@@ -243,9 +243,9 @@ def build_satellite_configuration(data: Dict[str, Any]) -> SatelliteConfiguratio
     electromagnetic = data.get("electromagnetic", {})
     reaction_wheels = data.get("reaction_wheels", {})
 
-    dimensions = mechanical.get("dimensions", [0.3, 0.2, 0.1])
+    dimensions = mechanical.get("dimensions", [])
     if not isinstance(dimensions, (list, tuple)) or len(dimensions) != 3:
-        dimensions = [0.3, 0.2, 0.1]
+        dimensions = []
 
     inertia_matrix = mechanical.get("inertia_tensor", [[0.02, 0.0, 0.0], [0.0, 0.015, 0.0], [0.0, 0.0, 0.01]])
     inertia_array = np.array(inertia_matrix, dtype=float)
@@ -271,9 +271,9 @@ def build_satellite_configuration(data: Dict[str, Any]) -> SatelliteConfiguratio
         mechanical=SatelliteMechanicalConfiguration(
             m=_coerce_float(mechanical.get("mass"), 12.5),
             I=total_tensor,
-            a=_coerce_float(dimensions[0], 0.3),
-            b=_coerce_float(dimensions[1], 0.2),
-            h=_coerce_float(dimensions[2], 0.1),
+            a=_coerce_float(dimensions[0], 0.0),
+            b=_coerce_float(dimensions[1], 0.0),
+            h=_coerce_float(dimensions[2], 0.0),
         ),
         electromagnetic=SatelliteCoilsConfiguration(
             N=_coerce_int(electromagnetic.get("coil_turns"), 120),

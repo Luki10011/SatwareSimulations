@@ -1,4 +1,3 @@
-
 import numpy as np
 import pyqtgraph.opengl as gl
 
@@ -127,6 +126,8 @@ class SatelliteScene(QWidget):
 
     def update_from_data(self, data: dict) -> None:
         mechanical = data.get("mechanical", {})
-        dimensions = mechanical.get("dimensions", [0.3, 0.2, 0.1])
+        dimensions = mechanical.get("dimensions") or [0.3, 0.2, 0.1]
+        if len(dimensions) < 3:
+            dimensions = [0.3, 0.2, 0.1]
         reaction_wheels = data.get("reaction_wheels", {})
         self.set_dimensions(tuple(dimensions[:3]), wheel_count=int(reaction_wheels.get("wheel_count", 3)))

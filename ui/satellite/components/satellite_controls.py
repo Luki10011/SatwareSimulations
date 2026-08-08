@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QTextBrowser,
     QVBoxLayout,
     QWidget,
+    QMessageBox,
 )
 
 from core.physics.dataclasses.satellite_configuration import (
@@ -30,19 +31,21 @@ from core.physics.dataclasses.satellite_configuration import (
     calculate_box_inertia_tensor,
     calculate_total_inertia_tensor,
     calculate_reaction_wheel_inertia_tensor,
+    validate_satellite_configuration_data,
 )
 import numpy as np
 
 
-
 class SatelliteControls(QWidget):
-    configurationChanged = pyqtSignal(dict)
+    configurationChanged = pyqtSignal(dict, bool)  # emits current configuration data and whether to mark errors
     saveRequested = pyqtSignal()
     loadRequested = pyqtSignal()
     resetRequested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._pristine = True
+        self._silent_update = True
         self._build_ui()
         self._set_defaults()
         self._refresh_summary()
@@ -87,7 +90,6 @@ class SatelliteControls(QWidget):
         button_row.addWidget(self.btn_save)
         button_row.addWidget(self.btn_reset)
         main_layout.addLayout(button_row)
-        
 
         self.btn_save.clicked.connect(self._emit_save_request)
         self.btn_reset.clicked.connect(self._emit_reset_request)
@@ -102,14 +104,13 @@ class SatelliteControls(QWidget):
         form_layout.setVerticalSpacing(8)
         form_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        # Standard double validator setup
         self.us_locale = QLocale(QLocale.Language.English, QLocale.Country.UnitedStates)
 
-        mass_val = QDoubleValidator(MASS_MIN, MASS_MAX, 3, self)
+        mass_val = QDoubleValidator(0.0, 100.0, 3, self)
         mass_val.setLocale(self.us_locale)
         mass_val.setNotation(QDoubleValidator.Notation.StandardNotation)
 
-        dim_val = QDoubleValidator(DIM_MIN, DIM_MAX, 3, self)
+        dim_val = QDoubleValidator(0.0, 10.0, 3, self)
         dim_val.setLocale(self.us_locale)
         dim_val.setNotation(QDoubleValidator.Notation.StandardNotation)
 
@@ -117,12 +118,12 @@ class SatelliteControls(QWidget):
         inertia_val.setLocale(self.us_locale)
         inertia_val.setNotation(QDoubleValidator.Notation.ScientificNotation)
 
-        turns_val = QIntValidator(COIL_TURNS_MIN, COIL_TURNS_MAX, self)
+        turns_val = QIntValidator(0, 10000, self)
 
-        area_val = QDoubleValidator(COIL_AREA_MIN, COIL_AREA_MAX, 4, self)
+        area_val = QDoubleValidator(0.0, 100.0, 4, self)
         area_val.setLocale(self.us_locale)
 
-        current_val = QDoubleValidator(MAX_CURRENT_MIN, MAX_CURRENT_MAX, 2, self)
+        current_val = QDoubleValidator(0.0, 100.0, 2, self)
         current_val.setLocale(self.us_locale)
 
         self.mechanical_header_label = QLabel("Mechanical Properties")
@@ -132,11 +133,11 @@ class SatelliteControls(QWidget):
         form_layout.addRow(self.mechanical_header_label)
 
         self.input_mass = self._create_line_edit(mass_val)
-        form_layout.addRow(f"Mass [kg]:", self.input_mass)
+        form_layout.addRow("Mass [kg]:", self.input_mass)
 
         self.input_dimensions = [self._create_line_edit(dim_val) for _ in range(3)]
         dimensions_container = self._create_horizontal_inputs(self.input_dimensions)
-        form_layout.addRow(f"Dimensions [m]:", dimensions_container)
+        form_layout.addRow("Dimensions [m]:", dimensions_container)
 
         inertia_label = QLabel("Inertia tensor J [kg·m²]:")
         self.input_inertia_tensor = [self._create_line_edit(inertia_val) for _ in range(9)]
@@ -157,9 +158,9 @@ class SatelliteControls(QWidget):
         self.input_coil_turns = self._create_line_edit(turns_val)
         self.input_coil_area = self._create_line_edit(area_val)
         self.input_max_current = self._create_line_edit(current_val)
-        form_layout.addRow(f"Coil turns:", self.input_coil_turns)
-        form_layout.addRow(f"Coil area [m²]:", self.input_coil_area)
-        form_layout.addRow(f"Max current [A]:", self.input_max_current)
+        form_layout.addRow("Coil turns:", self.input_coil_turns)
+        form_layout.addRow("Coil area [m²]:", self.input_coil_area)
+        form_layout.addRow("Max current [A]:", self.input_max_current)
 
     def _build_reaction_tab(self) -> None:
         if hasattr(self, "btn_reset"):
@@ -169,7 +170,6 @@ class SatelliteControls(QWidget):
         form_layout.setContentsMargins(8, 8, 8, 8)
         form_layout.setHorizontalSpacing(12)
         form_layout.setVerticalSpacing(8)
-
 
         double_validator = QDoubleValidator(self)
         double_validator.setLocale(
@@ -196,8 +196,6 @@ class SatelliteControls(QWidget):
         form_layout.addRow("Wheel height [m]:", self.input_wheel_height)
         form_layout.addRow("Wheel COM offset [m]:", self._create_horizontal_inputs(self.input_wheel_com_offset))
         form_layout.addRow("Max speed [rpm]:", self.input_wheel_max_speed)
-
-        # creating inertia tensor tabs: own and calculated automaticaly
 
         wheel_inertia_val = QDoubleValidator(0.0, 10.0, 6, self)
         wheel_inertia_val.setLocale(self.us_locale)
@@ -303,12 +301,26 @@ class SatelliteControls(QWidget):
             self.input_wheel_max_speed,
             *self.input_wheel_com_offset,
         ]:
-            field.textChanged.connect(self._refresh_summary)
-            field.textChanged.connect(self._emit_change)
-        self.input_reaction_configuration.currentTextChanged.connect(self._emit_change)
+            field.textChanged.connect(self._on_field_text_changed)
+            field.editingFinished.connect(self._on_field_finished)
+           
+        self.input_reaction_configuration.currentTextChanged.connect(self._on_field_text_changed)
+        self.input_reaction_configuration.currentTextChanged.connect(self._on_field_finished)
 
-    def _emit_change(self) -> None:
-        self.configurationChanged.emit(self.get_configuration_data())
+    def _on_field_text_changed(self) -> None:
+        """Called on text change: clears error on currently edited field and propagates change."""
+        sender = self.sender()
+        if sender and isinstance(sender, QWidget):
+            self._clear_widget_errors(sender)
+        self._refresh_summary()
+        self._emit_change(mark_errors=False)
+
+    def _emit_change(self, mark_errors: bool = False) -> None:
+        # if self._silent_update:
+        #     return
+        self._pristine = False
+        should_mark = bool(mark_errors) if isinstance(mark_errors, bool) else False
+        self.configurationChanged.emit(self.get_configuration_data(), should_mark)
 
     def _emit_save_request(self) -> None:
         self.saveRequested.emit()
@@ -326,17 +338,23 @@ class SatelliteControls(QWidget):
         self._refresh_summary()
 
     def _calculate_inertia_tensor(self) -> None:
-        """Calculate solid box inertia tensor accounting for mass m and dimensions (a, b, h)."""
-        dimensions = self._read_dimensions()
-        try:
-            mass = float(self.input_mass.text())
-        except ValueError:
-            mass = 0.0
+        errors = self.validate_inputs()
+        has_mass_error = "mass" in errors
+        has_dim_error = any(k in errors for k in ("dimensions", "dim_a", "dim_b", "dim_h"))
 
-        if dimensions is None or mass <= 0.0:
+        # Odśwież widok 3D tylko, gdy masa i wymiary są poprawne
+        if has_mass_error or has_dim_error:
+            QMessageBox.warning(self, "Invalid parameters", "Please correct highlighted fields before calculating inertia.")
+            size_errors = {k: v for k, v in errors.items() if k in ("mass", "dimensions", "dim_a", "dim_b", "dim_h")}
+            self.mark_errors(size_errors, replace_all=False)
             return
 
+        dimensions = self._read_dimensions()
+        if dimensions is None:
+            QMessageBox.warning(self, "Invalid parameters", "Dimensions are required and must be valid positive numbers.")
+            return
         a, b, h = dimensions
+        mass = self._to_float(self.input_mass.text())
         box_tensor = calculate_box_inertia_tensor(mass, a, b, h)
 
         flat_values = [
@@ -351,31 +369,38 @@ class SatelliteControls(QWidget):
         self._refresh_summary()
 
     def _set_defaults(self) -> None:
-        self.input_mass.setText("12.5")
-        self.input_dimensions[0].setText("0.30")
-        self.input_dimensions[1].setText("0.20")
-        self.input_dimensions[2].setText("0.10")
-        self.input_inertia_tensor[0].setText("0.020")
-        self.input_inertia_tensor[1].setText("0.000")
-        self.input_inertia_tensor[2].setText("0.000")
-        self.input_inertia_tensor[3].setText("0.000")
-        self.input_inertia_tensor[4].setText("0.015")
-        self.input_inertia_tensor[5].setText("0.000")
-        self.input_inertia_tensor[6].setText("0.000")
-        self.input_inertia_tensor[7].setText("0.000")
-        self.input_inertia_tensor[8].setText("0.010")
-        self.input_coil_turns.setText("120")
-        self.input_coil_area.setText("0.04")
-        self.input_max_current.setText("2.5")
+        self._silent_update = True
+        self.input_mass.setText("")
+        self.input_dimensions[0].setText("")
+        self.input_dimensions[1].setText("")
+        self.input_dimensions[2].setText("")
+        for idx in range(9):
+            self.input_inertia_tensor[idx].setText("")
+        self.input_coil_turns.setText("")
+        self.input_coil_area.setText("")
+        self.input_max_current.setText("")
         self.input_reaction_configuration.setCurrentText("principal")
         self.input_wheel_count.setText("3")
-        self.input_wheel_mass.setText("0.25")
-        self.input_wheel_radius.setText("0.05")
-        self.input_wheel_height.setText("0.02")
-        self.input_wheel_com_offset[0].setText("0.003")
-        self.input_wheel_com_offset[1].setText("0.002")
-        self.input_wheel_com_offset[2].setText("0.001")
-        self.input_wheel_max_speed.setText("6000")
+        self.input_wheel_mass.setText("")
+        self.input_wheel_radius.setText("")
+        self.input_wheel_height.setText("")
+        self.input_wheel_com_offset[0].setText("")
+        self.input_wheel_com_offset[1].setText("")
+        self.input_wheel_com_offset[2].setText("")
+        self.input_wheel_max_speed.setText("")
+        self._silent_update = False
+
+    def _to_float(self, text: str, default: float = 0.0) -> float:
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            return default
+
+    def _to_int(self, text: str, default: int = 0) -> int:
+        try:
+            return int(float(text))
+        except (TypeError, ValueError):
+            return default
 
     def _read_dimensions(self) -> List[float] | None:
         values = []
@@ -395,34 +420,34 @@ class SatelliteControls(QWidget):
         reaction_wheel_inertia_rows = []
         for row_index in range(0, 9, 3):
             satellite_inertia_rows.append([
-                float(self.input_inertia_tensor[row_index + col_index].text() or 0.0)
+                self._to_float(self.input_inertia_tensor[row_index + col_index].text())
                 for col_index in range(3)
             ])
         for row_index in range(0, 9, 3):
             reaction_wheel_inertia_rows.append([
-                float(self.wheel_inertia_tensor[row_index + col_index].text() or 0.0)
+                self._to_float(self.wheel_inertia_tensor[row_index + col_index].text())
                 for col_index in range(3)
             ])
         return {
             "mechanical": {
-                "mass": float(self.input_mass.text() or 0.0),
-                "dimensions": dimensions or [0.3, 0.2, 0.1],
+                "mass": self._to_float(self.input_mass.text()),
+                "dimensions": dimensions if dimensions is not None else [],
                 "inertia_tensor": satellite_inertia_rows,
             },
             "electromagnetic": {
-                "coil_turns": int(float(self.input_coil_turns.text() or 0)),
-                "coil_area": float(self.input_coil_area.text() or 0.0),
-                "max_current": float(self.input_max_current.text() or 0.0),
+                "coil_turns": self._to_int(self.input_coil_turns.text()),
+                "coil_area": self._to_float(self.input_coil_area.text()),
+                "max_current": self._to_float(self.input_max_current.text()),
             },
             "reaction_wheels": {
                 "configuration": self.input_reaction_configuration.currentText().strip().lower(),
-                "wheel_count": int(float(self.input_wheel_count.text() or 0)),
-                "wheel_mass": float(self.input_wheel_mass.text() or 0.0),
-                "wheel_radius": float(self.input_wheel_radius.text() or 0.0),
-                "wheel_height": float(self.input_wheel_height.text() or 0.0),
-                "wheel_max_speed": float(self.input_wheel_max_speed.text() or 0.0),
-                "com_offset": [float(field.text() or 0.0) for field in self.input_wheel_com_offset],
-                "inertia_tensor" : reaction_wheel_inertia_rows
+                "wheel_count": self._to_int(self.input_wheel_count.text()),
+                "wheel_mass": self._to_float(self.input_wheel_mass.text()),
+                "wheel_radius": self._to_float(self.input_wheel_radius.text()),
+                "wheel_height": self._to_float(self.input_wheel_height.text()),
+                "wheel_max_speed": self._to_float(self.input_wheel_max_speed.text()),
+                "com_offset": [self._to_float(field.text()) for field in self.input_wheel_com_offset],
+                "inertia_tensor": reaction_wheel_inertia_rows,
             },
         }
 
@@ -431,10 +456,15 @@ class SatelliteControls(QWidget):
         electromagnetic = data.get("electromagnetic", {})
         reaction_wheels = data.get("reaction_wheels", {})
 
-        self.input_mass.setText(str(mechanical.get("mass", "")))
-        dimensions = mechanical.get("dimensions", [0.3, 0.2, 0.1])
-        for index, value in enumerate(dimensions[:3]):
-            self.input_dimensions[index].setText(str(value))
+        self._silent_update = True
+        self.input_mass.setText("" if mechanical.get("mass") in (None, "None") else str(mechanical.get("mass", "")))
+
+        dimensions = mechanical.get("dimensions") or []
+        for index in range(3):
+            if index < len(dimensions):
+                self.input_dimensions[index].setText(str(dimensions[index]))
+            else:
+                self.input_dimensions[index].setText("")
 
         inertia_tensor = mechanical.get("inertia_tensor", [])
         flat_values = []
@@ -442,22 +472,41 @@ class SatelliteControls(QWidget):
             for row in inertia_tensor:
                 if isinstance(row, (list, tuple)):
                     flat_values.extend([str(value) for value in row[:3]])
-        for index, value in enumerate(flat_values[:9]):
-            self.input_inertia_tensor[index].setText(value)
-        self.input_coil_turns.setText(str(electromagnetic.get("coil_turns", "")))
-        self.input_coil_area.setText(str(electromagnetic.get("coil_area", "")))
-        self.input_max_current.setText(str(electromagnetic.get("max_current", "")))
+        for index in range(9):
+            self.input_inertia_tensor[index].setText(flat_values[index] if index < len(flat_values) else "")
+
+        self.input_coil_turns.setText("" if electromagnetic.get("coil_turns") in (None, "None") else str(electromagnetic.get("coil_turns", "")))
+        self.input_coil_area.setText("" if electromagnetic.get("coil_area") in (None, "None") else str(electromagnetic.get("coil_area", "")))
+        self.input_max_current.setText("" if electromagnetic.get("max_current") in (None, "None") else str(electromagnetic.get("max_current", "")))
 
         configuration = str(reaction_wheels.get("configuration", "principal")).lower()
         self.input_reaction_configuration.setCurrentText(configuration)
-        self.input_wheel_count.setText(str(reaction_wheels.get("wheel_count", 3)))
-        self.input_wheel_mass.setText(str(reaction_wheels.get("wheel_mass", "")))
-        self.input_wheel_radius.setText(str(reaction_wheels.get("wheel_radius", "")))
-        self.input_wheel_height.setText(str(reaction_wheels.get("wheel_height", "")))
-        self.input_wheel_max_speed.setText(str(reaction_wheels.get("wheel_max_speed", "")))
-        com_offset = reaction_wheels.get("com_offset", [0.003, 0.002, 0.001])
-        for index, value in enumerate(com_offset[:3]):
-            self.input_wheel_com_offset[index].setText(str(value))
+        self.input_wheel_count.setText("" if reaction_wheels.get("wheel_count") in (None, "None") else str(reaction_wheels.get("wheel_count", 3)))
+        self.input_wheel_mass.setText("" if reaction_wheels.get("wheel_mass") in (None, "None") else str(reaction_wheels.get("wheel_mass", "")))
+        self.input_wheel_radius.setText("" if reaction_wheels.get("wheel_radius") in (None, "None") else str(reaction_wheels.get("wheel_radius", "")))
+        self.input_wheel_height.setText("" if reaction_wheels.get("wheel_height") in (None, "None") else str(reaction_wheels.get("wheel_height", "")))
+        self.input_wheel_max_speed.setText("" if reaction_wheels.get("wheel_max_speed") in (None, "None") else str(reaction_wheels.get("wheel_max_speed", "")))
+
+        com_offset = reaction_wheels.get("com_offset") or []
+        for index in range(3):
+            if index < len(com_offset):
+                self.input_wheel_com_offset[index].setText(str(com_offset[index]))
+            else:
+                self.input_wheel_com_offset[index].setText("")
+
+        wheel_inertia_tensor = reaction_wheels.get("inertia_tensor", [])
+        flat_wheel_values = []
+        if isinstance(wheel_inertia_tensor, (list, tuple)):
+            for row in wheel_inertia_tensor:
+                if isinstance(row, (list, tuple)):
+                    flat_wheel_values.extend([str(value) for value in row[:3]])
+
+        for index in range(9):
+            self.wheel_inertia_tensor[index].setText(flat_wheel_values[index] if index < len(flat_wheel_values) else "")
+
+
+        self._silent_update = False
+        self._pristine = False
         self._refresh_summary()
 
     def _refresh_summary(self) -> None:
@@ -469,7 +518,6 @@ class SatelliteControls(QWidget):
         reaction_wheels = data["reaction_wheels"]
 
         try:
-            
             total_tensor = calculate_total_inertia_tensor(
                 mechanical_tensor=np.array(mechanical_tensor, dtype=float),
                 mechanical_mass=data["mechanical"]["mass"],
@@ -480,32 +528,65 @@ class SatelliteControls(QWidget):
                 com_offset=np.array(reaction_wheels.get("com_offset", [0.003, 0.002, 0.001]), dtype=float),
             )
         except Exception:
-            import numpy as np
             total_tensor = np.array(mechanical_tensor, dtype=float)
+
+        def fmt(val, fmtstr="{:.3f}"): 
+            try:
+                return fmtstr.format(val)
+            except Exception:
+                return "n/a"
+
+        dims = data['mechanical']['dimensions']
+        dim_a = fmt(dims[0]) if isinstance(dims, (list, tuple)) and len(dims) > 0 else "n/a"
+        dim_b = fmt(dims[1]) if isinstance(dims, (list, tuple)) and len(dims) > 1 else "n/a"
+        dim_h = fmt(dims[2]) if isinstance(dims, (list, tuple)) and len(dims) > 2 else "n/a"
 
         lines = [
             "Satellite configuration summary",
             "===============================",
-            f"Mass: {data['mechanical']['mass']:.3f} kg",
-            f"Dimensions: a={data['mechanical']['dimensions'][0]:.3f} m, b={data['mechanical']['dimensions'][1]:.3f} m, h={data['mechanical']['dimensions'][2]:.3f} m",
-            f"Coils: turns={data['electromagnetic']['coil_turns']}, area={data['electromagnetic']['coil_area']:.3f} m², Imax={data['electromagnetic']['max_current']:.3f} A",
-            f"Reaction wheels: {reaction_wheels['configuration']} ({reaction_wheels['wheel_count']} wheels)",
-            f"Wheel geometry: m={reaction_wheels['wheel_mass']:.3f} kg, r={reaction_wheels['wheel_radius']:.3f} m, h={reaction_wheels['wheel_height']:.3f} m",
+            f"Mass: {fmt(data['mechanical']['mass'])} kg",
+            f"Dimensions: a={dim_a} m, b={dim_b} m, h={dim_h} m",
+            f"Coils: turns={data['electromagnetic']['coil_turns']}, area={fmt(data['electromagnetic']['coil_area'])} m², Imax={fmt(data['electromagnetic']['max_current'])} A",
+            f"Reaction wheels: {reaction_wheels.get('configuration', 'n/a')} ({reaction_wheels.get('wheel_count', 'n/a')} wheels)",
+            f"Wheel geometry: m={fmt(reaction_wheels.get('wheel_mass'))} kg, r={fmt(reaction_wheels.get('wheel_radius'))} m, h={fmt(reaction_wheels.get('wheel_height'))} m",
             "",
             "Total inertia tensor [kg·m²] (Steiner correction):",
-            f"Jxx = {total_tensor[0, 0]:.6f}",
-            f"Jyy = {total_tensor[1, 1]:.6f}",
-            f"Jzz = {total_tensor[2, 2]:.6f}",
-            f"Jxy = {total_tensor[0, 1]:.6f}",
-            f"Jxz = {total_tensor[0, 2]:.6f}",
-            f"Jyz = {total_tensor[1, 2]:.6f}",
+            f"Jxx = {fmt(total_tensor[0, 0], '{:.6f}')}",
+            f"Jyy = {fmt(total_tensor[1, 1], '{:.6f}')}",
+            f"Jzz = {fmt(total_tensor[2, 2], '{:.6f}')}",
+            f"Jxy = {fmt(total_tensor[0, 1], '{:.6f}')}",
+            f"Jxz = {fmt(total_tensor[0, 2], '{:.6f}')}",
+            f"Jyz = {fmt(total_tensor[1, 2], '{:.6f}')}",
         ]
         self.summary_browser.setPlainText("\n".join(lines))
 
-    def validate_inputs(self) -> List[str]:
-        from core.physics.dataclasses.satellite_configuration import validate_satellite_configuration_data
-
+    def validate_inputs(self) -> Dict[str, str]:
         return validate_satellite_configuration_data(self.get_configuration_data())
+
+    def _on_field_finished(self) -> None:
+        """Called when a field loses focus (editingFinished) — validate only the current field."""
+        if self._silent_update:
+            return
+        sender = self.sender()
+        if sender is None or not isinstance(sender, QWidget):
+            return
+
+        if isinstance(sender, QLineEdit) and not sender.text().strip():
+            self._clear_widget_errors(sender)
+            self._emit_change(mark_errors=False)
+            return
+
+        all_errors = self.validate_inputs()
+        current_keys = self._get_error_keys_for_widget(sender)
+        current_errors = {
+            key: msg for key, msg in all_errors.items() if key in current_keys
+        }
+
+        self._clear_widget_errors(sender)
+        if current_errors:
+            self.mark_errors(current_errors, replace_all=False)
+
+        self._emit_change(mark_errors=False)
 
     def _get_field_map(self) -> Dict[str, Any]:
         """Maps Qt widgets to their corresponding configuration keys for error marking."""
@@ -514,8 +595,8 @@ class SatelliteControls(QWidget):
             "dim_a": self.input_dimensions[0] if len(self.input_dimensions) > 0 else None,
             "dim_b": self.input_dimensions[1] if len(self.input_dimensions) > 1 else None,
             "dim_h": self.input_dimensions[2] if len(self.input_dimensions) > 2 else None,
-            "dimensions": self.input_dimensions, # Cała lista pól wymiarów
-            "inertia_tensor": self.input_inertia_tensor, # Cała macierz/lista pól
+            "dimensions": self.input_dimensions,
+            "inertia_tensor": self.input_inertia_tensor,
             "coil_turns": self.input_coil_turns,
             "coil_area": self.input_coil_area,
             "max_current": self.input_max_current,
@@ -526,21 +607,72 @@ class SatelliteControls(QWidget):
             "wheel_max_speed": self.input_wheel_max_speed,
         }
 
+    def _get_error_keys_for_widget(self, widget: QWidget) -> List[str]:
+        """Return validator error keys associated with the provided widget."""
+        if widget == self.input_mass:
+            return ["mass"]
+        if widget in self.input_dimensions:
+            index = self.input_dimensions.index(widget)
+            return ["dim_a", "dim_b", "dim_h"][index:index+1] + ["dimensions"]
+        if widget in self.input_inertia_tensor:
+            return ["inertia_tensor"]
+        if widget == self.input_coil_turns:
+            return ["coil_turns"]
+        if widget == self.input_coil_area:
+            return ["coil_area"]
+        if widget == self.input_max_current:
+            return ["max_current"]
+        if widget == self.input_wheel_count:
+            return ["wheel_count"]
+        if widget == self.input_wheel_mass:
+            return ["wheel_mass"]
+        if widget == self.input_wheel_radius:
+            return ["wheel_radius"]
+        if widget == self.input_wheel_height:
+            return ["wheel_height"]
+        if widget == self.input_wheel_max_speed:
+            return ["wheel_max_speed"]
+        if widget == self.input_reaction_configuration:
+            return ["wheel_configuration", "wheel_count"]
+        return []
+
     def clear_errors(self) -> None:
         """Resets the error state of all input fields, removing any error highlights and tooltips."""
         field_map = self._get_field_map()
         for target in field_map.values():
             widgets = target if isinstance(target, (list, tuple)) else [target]
             for widget in widgets:
-                if widget and widget.property("hasError"):
-                    widget.setProperty("hasError", False)
-                    widget.setToolTip("")
-                    widget.style().unpolish(widget)
-                    widget.style().polish(widget)
+                self._reset_widget_style(widget)
 
-    def mark_errors(self, errors: Dict[str, str]) -> None:
+    def _clear_widget_errors(self, widget: QWidget) -> None:
+        """Clear errors for the provided widget or grouping (dimensions / inertia tensor)."""
+        if widget is None:
+            return
+
+        # Jeśli edytujemy pole wymiarów lub tensora bezwładności, czyścimy całą grupę
+        if widget in self.input_dimensions:
+            targets = self.input_dimensions
+        elif hasattr(self, "input_inertia_tensor") and widget in self.input_inertia_tensor:
+            targets = self.input_inertia_tensor
+        else:
+            targets = [widget]
+
+        for target_widget in targets:
+            self._reset_widget_style(target_widget)
+
+    def _reset_widget_style(self, widget: QWidget) -> None:
+        """Helper to reset styling and tooltips on a widget."""
+        if widget and widget.property("hasError"):
+            widget.setProperty("hasError", False)
+            widget.setToolTip("")
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+
+    def mark_errors(self, errors: Dict[str, str], replace_all: bool = True) -> None:
         """Marks only the fields that contain errors."""
-        self.clear_errors()
+        if replace_all:
+            self.clear_errors()
+
         if not errors:
             return
 
@@ -556,6 +688,6 @@ class SatelliteControls(QWidget):
             for widget in widgets:
                 if widget:
                     widget.setProperty("hasError", True)
-                    widget.setToolTip(error_msg)  # Dodaje treść błędu w chmurce po najechaniu myszką
-                    # widget.style().unpolish(widget)
+                    widget.setToolTip(error_msg)
+                    widget.style().unpolish(widget)
                     widget.style().polish(widget)

@@ -1,4 +1,3 @@
-
 import json
 from pathlib import Path
 
@@ -44,10 +43,37 @@ class SatelliteConfigurator(QWidget):
         splitter.setSizes([420, 780])
         layout.addWidget(splitter)
 
-        self._sync_view(self.satellite_controls.get_configuration_data())
+        self._sync_view(self.satellite_controls.get_configuration_data(), mark_errors=False)
 
-    def _sync_view(self, data: dict) -> None:
-        self.satellite_view.update_from_data(data)
+    def _sync_view(self, data: dict, mark_errors: bool = False) -> None:
+        if getattr(self.satellite_controls, "_pristine", True):
+            self.satellite_controls.clear_errors()
+            try:
+                self.satellite_view._clear_scene()
+            except Exception:
+                pass
+            return
+
+        errors = validate_satellite_configuration_data(data)
+
+        if mark_errors:
+            if errors:
+                self.satellite_controls.mark_errors(errors)
+                try:
+                    self.satellite_view._clear_scene()
+                except Exception:
+                    pass
+                return
+            else:
+                self.satellite_controls.clear_errors()
+
+        # Bezpieczne sprawdzenie obecności błędów geometrii w słowniku
+        has_mass_error = "mass" in errors
+        has_dim_error = any(k in errors for k in ("dimensions", "dim_a", "dim_b", "dim_h"))
+
+        # Odśwież widok 3D tylko, gdy masa i wymiary są poprawne
+        if not has_mass_error and not has_dim_error:
+            self.satellite_view.update_from_data(data)
 
     def _save_configuration(self) -> None:
         self.satellite_controls.clear_errors()
@@ -55,7 +81,7 @@ class SatelliteConfigurator(QWidget):
         errors = validate_satellite_configuration_data(data)
         if errors:
             self.satellite_controls.mark_errors(errors)
-            QMessageBox.warning(self, "Invalid configuration", "\n".join(errors))
+            QMessageBox.warning(self, "Invalid configuration", "\n".join(errors.values() if isinstance(errors, dict) else errors))
             return
 
         file_path, _ = QFileDialog.getSaveFileName(
@@ -89,11 +115,11 @@ class SatelliteConfigurator(QWidget):
         errors = validate_satellite_configuration_data(data)
         if errors:
             self.satellite_controls.mark_errors(errors)
-            QMessageBox.warning(self, "Invalid configuration", "\n".join(errors))
+            QMessageBox.warning(self, "Invalid configuration", "\n".join(errors.values() if isinstance(errors, dict) else errors))
             return
 
         self.satellite_controls.set_configuration_data(data)
-        self._sync_view(data)
+        self._sync_view(data, mark_errors=False)
         QMessageBox.information(self, "Loaded", f"Configuration loaded from {file_path}")
 
     def reset_satellite_configurator(self):
@@ -101,30 +127,29 @@ class SatelliteConfigurator(QWidget):
         self.reset()
         self.satellite_view.view.setCameraPosition(distance=3.8, elevation=20, azimuth=35)
 
-
     def reset(self) -> None:
-        current_tab = self.satellite_controls.tab_widget.currentWidget().objectName()
-        print(current_tab)
         self.satellite_controls.set_configuration_data({
             "mechanical": {
-                "mass": 12.5,
-                "dimensions": [0.3, 0.2, 0.1],
-                "inertia_tensor": [[0.02, 0.0, 0.0], [0.0, 0.015, 0.0], [0.0, 0.0, 0.01]],
+                "mass": "",
+                "dimensions": [],
+                "inertia_tensor": [],
             },
             "electromagnetic": {
-                "coil_turns": 120,
-                "coil_area": 0.04,
-                "max_current": 2.5,
+                "coil_turns": "",
+                "coil_area": "",
+                "max_current": "",
             },
             "reaction_wheels": {
                 "configuration": "principal",
                 "wheel_count": 3,
-                "wheel_mass": 0.25,
-                "wheel_radius": 0.05,
-                "wheel_height": 0.02,
-                "wheel_max_speed": 6000,
-                "com_offset": [0.003, 0.002, 0.001],
+                "wheel_mass": "",
+                "wheel_radius": "",
+                "wheel_height": "",
+                "wheel_max_speed": "",
+                "com_offset": ["", "", ""],
+                "inertia_tensor": [],
             },
         })
-        self._sync_view(self.satellite_controls.get_configuration_data())
-
+        self.satellite_controls._pristine = True
+        self.satellite_controls.clear_errors()
+        self._sync_view(self.satellite_controls.get_configuration_data(), mark_errors=False)
