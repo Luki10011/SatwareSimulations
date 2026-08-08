@@ -454,19 +454,19 @@ QSlider::handle:horizontal {
 }
 
 /* --- Stan wyłączony (Nieaktywny) --- */
-    QSlider::sub-page:horizontal:disabled {
-        background: #666666; /* Szary pasek postępu */
-    }
-    QSlider::handle:horizontal:disabled {
-        background: #666666; /* Szary środek kropki */
-        border: 4px solid #444444; /* Jaśniejsza, szara obwódka */
-    }
-    QSlider::add-page:horizontal:disabled {
-        background: #444444; /* Ciemniejsza reszta paska, by uchwyt był widoczny */
-    }
-    QSlider::groove:horizontal:disabled {
-        background: #444444;
-    }
+QSlider::sub-page:horizontal:disabled {
+    background: #666666; /* Szary pasek postępu */
+}
+QSlider::handle:horizontal:disabled {
+    background: #666666; /* Szary środek kropki */
+    border: 4px solid #444444; /* Jaśniejsza, szara obwódka */
+}
+QSlider::add-page:horizontal:disabled {
+    background: #444444; /* Ciemniejsza reszta paska, by uchwyt był widoczny */
+}
+QSlider::groove:horizontal:disabled {
+    background: #444444;
+}
 
 /* ==========================================================================
    STYL DLA KONFIGURATORA SATELITY (QTabWidget - DARK FLUENT MODE)

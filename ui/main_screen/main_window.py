@@ -5,7 +5,6 @@ from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QMainWindow, QM
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QAction, QMatrix4x4, QPalette
 import qdarktheme
-
 from ui.main_screen.components.predefined_orbit import PredefinedOrbitDialog
 from ui.main_screen.components.welcome_screen import MainScreenWelcome
 from ui.orbits.orbit_designer import OrbitDesigner  
@@ -125,13 +124,16 @@ class MainWindow(QMainWindow):
             reply = QMessageBox.question(self, "Satellite Configurator", "You are returning to the satellite configurator. Any unsaved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
             if reply == QMessageBox.StandardButton.Yes:
-                self.satellite_configurator.reset()
+                self.satellite_configurator.reset_satellite_configurator()
             else:
                 return
-
+        elif self.central_stacked_widget.currentIndex() == 2:
+            reply = QMessageBox.question(self, "Orbit Designer", "You are switching to satellite configurator functional module. Any unasved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                self.satellite_configurator.reset_satellite_configurator()
+            else:
+                return
         self._run_safe_transition(heavy_action= lambda : self.central_stacked_widget.setCurrentIndex(3))
-
-
 
     def close_application(self):
         if self._is_switching:
@@ -188,6 +190,14 @@ class MainWindow(QMainWindow):
                 self.orbit_designer_screen.reset_designer()
             else:
                 return
+
+        if self.central_stacked_widget.currentIndex() == 3:
+            reply = QMessageBox.question(self, "Satellite Configurator", "You are switching to orbit designer functional module. Any unasved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                self.orbit_designer_screen.reset_designer()
+            else:
+                return
+            
         
         self._run_safe_transition(heavy_action=None)
 
@@ -254,6 +264,6 @@ def apply_dark_palette(app: QApplication):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
-    apply_dark_palette(app)
+    # apply_dark_palette(app)
     window.show()
     sys.exit(app.exec())

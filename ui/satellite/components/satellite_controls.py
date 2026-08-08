@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSizePolicy,
+    QTabBar,
     QTabWidget,
     QTextBrowser,
     QVBoxLayout,
@@ -27,7 +28,11 @@ from core.physics.dataclasses.satellite_configuration import (
     MAX_CURRENT_MIN,
     MAX_CURRENT_MAX,
     calculate_box_inertia_tensor,
+    calculate_total_inertia_tensor,
+    calculate_reaction_wheel_inertia_tensor,
 )
+import numpy as np
+
 
 
 class SatelliteControls(QWidget):
@@ -48,7 +53,6 @@ class SatelliteControls(QWidget):
         main_layout.setSpacing(10)
 
         self.header_label = QLabel("Satellite Configuration Editor")
-        self.header_label.setObjectName("satelliteHeaderLabel")
         self.header_label.setStyleSheet(
             "font-size: 14px; font-weight: bold; color: #ffffff; margin-bottom: 6px;"
         )
@@ -61,8 +65,11 @@ class SatelliteControls(QWidget):
         main_layout.addWidget(self.tab_widget)
 
         self._mechanical_tab = QWidget(self)
+        self._mechanical_tab.setObjectName("mechanical_tab")
         self._reaction_tab = QWidget(self)
+        self._reaction_tab.setObjectName("reaction_tab")
         self._summary_tab = QWidget(self)
+        self._summary_tab.setObjectName("summary_tab")
 
         self.tab_widget.addTab(self._mechanical_tab, "Mechanical / EM")
         self.tab_widget.addTab(self._reaction_tab, "Reaction Wheels")
@@ -76,19 +83,16 @@ class SatelliteControls(QWidget):
         button_row = QHBoxLayout()
         button_row.setSpacing(6)
         self.btn_save = QPushButton("Save")
-        self.btn_load = QPushButton("Load")
         self.btn_reset = QPushButton("Reset")
         button_row.addWidget(self.btn_save)
-        button_row.addWidget(self.btn_load)
         button_row.addWidget(self.btn_reset)
         main_layout.addLayout(button_row)
+        
 
         self.btn_save.clicked.connect(self._emit_save_request)
-        self.btn_load.clicked.connect(self._emit_load_request)
         self.btn_reset.clicked.connect(self._emit_reset_request)
 
         self.btn_save.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.btn_load.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_reset.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def _build_mechanical_tab(self) -> None:
@@ -96,29 +100,30 @@ class SatelliteControls(QWidget):
         form_layout.setContentsMargins(8, 8, 8, 8)
         form_layout.setHorizontalSpacing(12)
         form_layout.setVerticalSpacing(8)
+        form_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         # Standard double validator setup
-        us_locale = QLocale(QLocale.Language.English, QLocale.Country.UnitedStates)
+        self.us_locale = QLocale(QLocale.Language.English, QLocale.Country.UnitedStates)
 
         mass_val = QDoubleValidator(MASS_MIN, MASS_MAX, 3, self)
-        mass_val.setLocale(us_locale)
+        mass_val.setLocale(self.us_locale)
         mass_val.setNotation(QDoubleValidator.Notation.StandardNotation)
 
         dim_val = QDoubleValidator(DIM_MIN, DIM_MAX, 3, self)
-        dim_val.setLocale(us_locale)
+        dim_val.setLocale(self.us_locale)
         dim_val.setNotation(QDoubleValidator.Notation.StandardNotation)
 
         inertia_val = QDoubleValidator(0.0, 10.0, 6, self)
-        inertia_val.setLocale(us_locale)
-        inertia_val.setNotation(QDoubleValidator.Notation.StandardNotation)
+        inertia_val.setLocale(self.us_locale)
+        inertia_val.setNotation(QDoubleValidator.Notation.ScientificNotation)
 
         turns_val = QIntValidator(COIL_TURNS_MIN, COIL_TURNS_MAX, self)
 
         area_val = QDoubleValidator(COIL_AREA_MIN, COIL_AREA_MAX, 4, self)
-        area_val.setLocale(us_locale)
+        area_val.setLocale(self.us_locale)
 
         current_val = QDoubleValidator(MAX_CURRENT_MIN, MAX_CURRENT_MAX, 2, self)
-        current_val.setLocale(us_locale)
+        current_val.setLocale(self.us_locale)
 
         self.mechanical_header_label = QLabel("Mechanical Properties")
         self.mechanical_header_label.setStyleSheet(
@@ -133,13 +138,15 @@ class SatelliteControls(QWidget):
         dimensions_container = self._create_horizontal_inputs(self.input_dimensions)
         form_layout.addRow(f"Dimensions [m]:", dimensions_container)
 
+        inertia_label = QLabel("Inertia tensor J [kg·m²]:")
         self.input_inertia_tensor = [self._create_line_edit(inertia_val) for _ in range(9)]
         inertia_container = self._create_grid_inputs(self.input_inertia_tensor, 3)
-        form_layout.addRow("Inertia tensor [kg·m²]:", inertia_container)
+        form_layout.addRow(inertia_label)
+        form_layout.addRow(inertia_container)
 
-        self.btn_calculate_inertia_tensor = QPushButton("Calculate J based on size \\& mass")
+        self.btn_calculate_inertia_tensor = QPushButton("Calculate J")
         self.btn_calculate_inertia_tensor.clicked.connect(self._calculate_inertia_tensor)
-        form_layout.addRow("", self.btn_calculate_inertia_tensor)
+        form_layout.addRow(self.btn_calculate_inertia_tensor)
 
         self.electromagnetic_header_label = QLabel("Electromagnetic Properties")
         self.electromagnetic_header_label.setStyleSheet(
@@ -155,10 +162,14 @@ class SatelliteControls(QWidget):
         form_layout.addRow(f"Max current [A]:", self.input_max_current)
 
     def _build_reaction_tab(self) -> None:
+        if hasattr(self, "btn_reset"):
+            self.btn_reset.setEnabled(True)
+        
         form_layout = QFormLayout(self._reaction_tab)
         form_layout.setContentsMargins(8, 8, 8, 8)
         form_layout.setHorizontalSpacing(12)
         form_layout.setVerticalSpacing(8)
+
 
         double_validator = QDoubleValidator(self)
         double_validator.setLocale(
@@ -186,9 +197,52 @@ class SatelliteControls(QWidget):
         form_layout.addRow("Wheel COM offset [m]:", self._create_horizontal_inputs(self.input_wheel_com_offset))
         form_layout.addRow("Max speed [rpm]:", self.input_wheel_max_speed)
 
+        # creating inertia tensor tabs: own and calculated automaticaly
+
+        wheel_inertia_val = QDoubleValidator(0.0, 10.0, 6, self)
+        wheel_inertia_val.setLocale(self.us_locale)
+        wheel_inertia_val.setNotation(QDoubleValidator.Notation.ScientificNotation)
+        
+        inertia_label = QLabel("Wheel inertia tensor J<sub>R</sub> [kg·m²]:")
+        self.wheel_inertia_tensor = [self._create_line_edit(wheel_inertia_val, parent=self._reaction_tab) for _ in range(9)]
+        wheel_own_inertia_container = self._create_grid_inputs(self.wheel_inertia_tensor, 3, parent=self._reaction_tab)
+        wheel_own_inertia_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        for index in range(9):
+            self.wheel_inertia_tensor[index].setText("")
+       
+        form_layout.addRow(inertia_label)
+        form_layout.addRow(wheel_own_inertia_container)
+
+        btn_calculte_wheel_inertia = QPushButton("Calculate J<sub>R</sub>")
+        btn_calculte_wheel_inertia.clicked.connect(self._calculate_wheel_inertia)
+
+        form_layout.addRow(btn_calculte_wheel_inertia)
+
         self._update_reaction_configuration_ui(self.input_reaction_configuration.currentText())
 
+    def _calculate_wheel_inertia(self):
+        r_mass = float(self.input_wheel_mass.text() or 0.0)
+        r_height = float(self.input_wheel_height.text() or 0.0)
+        r_radius = float(self.input_wheel_radius.text() or 0.0)
+        calculated_inertia_tensor = calculate_reaction_wheel_inertia_tensor(
+            r_mass,
+            r_radius,
+            r_height
+        )
+        flat_values = [
+            calculated_inertia_tensor[0, 0], calculated_inertia_tensor[0, 1], calculated_inertia_tensor[0, 2],
+            calculated_inertia_tensor[1, 0], calculated_inertia_tensor[1, 1], calculated_inertia_tensor[1, 2],
+            calculated_inertia_tensor[2, 0], calculated_inertia_tensor[2, 1], calculated_inertia_tensor[2, 2],
+        ]
+
+        for index, value in enumerate(flat_values):
+            self.wheel_inertia_tensor[index].setText(f"{value:.6}")
+
     def _build_summary_tab(self) -> None:
+        if hasattr(self, "btn_reset"):
+            self.btn_reset.setEnabled(False)
+                
         layout = QVBoxLayout(self._summary_tab)
         layout.setContentsMargins(8, 8, 8, 8)
         self.summary_browser = QTextBrowser(self)
@@ -203,14 +257,14 @@ class SatelliteControls(QWidget):
         )
         layout.addWidget(self.summary_browser)
 
-    def _create_line_edit(self, validator) -> QLineEdit:
-        line_edit = QLineEdit(self)
+    def _create_line_edit(self, validator, parent = None) -> QLineEdit:
+        line_edit = QLineEdit(self if parent is None else parent)
         line_edit.setValidator(validator)
         line_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         return line_edit
 
-    def _create_horizontal_inputs(self, inputs: List[QLineEdit]) -> QWidget:
-        container = QWidget(self)
+    def _create_horizontal_inputs(self, inputs: List[QLineEdit], parent = None) -> QWidget:
+        container = QWidget(self if parent is None else parent)
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
@@ -218,14 +272,14 @@ class SatelliteControls(QWidget):
             layout.addWidget(input_field, stretch=1)
         return container
 
-    def _create_grid_inputs(self, inputs: List[QLineEdit], columns: int) -> QWidget:
-        container = QWidget(self)
+    def _create_grid_inputs(self, inputs: List[QLineEdit], columns: int, parent = None) -> QWidget:
+        container = QWidget(self if parent is None else parent)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         for row_start in range(0, len(inputs), columns):
             row_inputs = inputs[row_start:row_start + columns]
-            row_widget = QWidget(self)
+            row_widget = QWidget(self if parent is None else parent)
             row_layout = QHBoxLayout(row_widget)
             row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setSpacing(6)
@@ -302,7 +356,13 @@ class SatelliteControls(QWidget):
         self.input_dimensions[1].setText("0.20")
         self.input_dimensions[2].setText("0.10")
         self.input_inertia_tensor[0].setText("0.020")
+        self.input_inertia_tensor[1].setText("0.000")
+        self.input_inertia_tensor[2].setText("0.000")
+        self.input_inertia_tensor[3].setText("0.000")
         self.input_inertia_tensor[4].setText("0.015")
+        self.input_inertia_tensor[5].setText("0.000")
+        self.input_inertia_tensor[6].setText("0.000")
+        self.input_inertia_tensor[7].setText("0.000")
         self.input_inertia_tensor[8].setText("0.010")
         self.input_coil_turns.setText("120")
         self.input_coil_area.setText("0.04")
@@ -331,17 +391,23 @@ class SatelliteControls(QWidget):
 
     def get_configuration_data(self) -> dict:
         dimensions = self._read_dimensions()
-        inertia_rows = []
+        satellite_inertia_rows = []
+        reaction_wheel_inertia_rows = []
         for row_index in range(0, 9, 3):
-            inertia_rows.append([
+            satellite_inertia_rows.append([
                 float(self.input_inertia_tensor[row_index + col_index].text() or 0.0)
+                for col_index in range(3)
+            ])
+        for row_index in range(0, 9, 3):
+            reaction_wheel_inertia_rows.append([
+                float(self.wheel_inertia_tensor[row_index + col_index].text() or 0.0)
                 for col_index in range(3)
             ])
         return {
             "mechanical": {
                 "mass": float(self.input_mass.text() or 0.0),
                 "dimensions": dimensions or [0.3, 0.2, 0.1],
-                "inertia_tensor": inertia_rows,
+                "inertia_tensor": satellite_inertia_rows,
             },
             "electromagnetic": {
                 "coil_turns": int(float(self.input_coil_turns.text() or 0)),
@@ -356,6 +422,7 @@ class SatelliteControls(QWidget):
                 "wheel_height": float(self.input_wheel_height.text() or 0.0),
                 "wheel_max_speed": float(self.input_wheel_max_speed.text() or 0.0),
                 "com_offset": [float(field.text() or 0.0) for field in self.input_wheel_com_offset],
+                "inertia_tensor" : reaction_wheel_inertia_rows
             },
         }
 
@@ -402,9 +469,7 @@ class SatelliteControls(QWidget):
         reaction_wheels = data["reaction_wheels"]
 
         try:
-            import numpy as np
-            from core.physics.dataclasses.satellite_configuration import calculate_total_inertia_tensor
-
+            
             total_tensor = calculate_total_inertia_tensor(
                 mechanical_tensor=np.array(mechanical_tensor, dtype=float),
                 mechanical_mass=data["mechanical"]["mass"],
@@ -493,4 +558,4 @@ class SatelliteControls(QWidget):
                     widget.setProperty("hasError", True)
                     widget.setToolTip(error_msg)  # Dodaje treść błędu w chmurce po najechaniu myszką
                     # widget.style().unpolish(widget)
-                    # widget.style().polish(widget)
+                    widget.style().polish(widget)

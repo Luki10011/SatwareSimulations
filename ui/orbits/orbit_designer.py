@@ -176,9 +176,7 @@ class OrbitDesigner(QWidget):
 
         splitter.addWidget(left_panel_container)
         splitter.addWidget(self.view)
-        splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 2)
-        splitter.setSizes([420, 780])
         layout.addWidget(splitter)
 
     def _on_tab_changed(self, index: int) -> None:
@@ -237,26 +235,6 @@ class OrbitDesigner(QWidget):
         
         self.view.update()
 
-
-    # def _update_ecef_vectors(self, theta: float) -> None:
-    #     """Rotate ECEF vectors and their labels around the Z axis by angle theta."""
-    #     length = 20000.0
-    #     cos_t = np.cos(theta)
-    #     sin_t = np.sin(theta)
-        
-    #     x_tip = np.array([length * cos_t, length * sin_t, 0.0], dtype=np.float32)
-    #     y_tip = np.array([-length * sin_t, length * cos_t, 0.0], dtype=np.float32)
-    #     z_tip = np.array([0.0, 0.0, length], dtype=np.float32) # Oś Z pozostaje nieruchoma
-        
-    #     if len(self.ecef_vectors) == 3:
-    #         self.ecef_vectors[0].setData(pos=np.array([[0, 0, 0], x_tip], dtype=np.float32))
-    #         self.ecef_vectors[1].setData(pos=np.array([[0, 0, 0], y_tip], dtype=np.float32))
-    #         self.ecef_vectors[2].setData(pos=np.array([[0, 0, 0], z_tip], dtype=np.float32))
-            
-    #     if len(self.ecef_labels) == 3:
-    #         self.ecef_labels[0].setData(pos=x_tip * 1.05)
-    #         self.ecef_labels[1].setData(pos=y_tip * 1.05)
-    #         self.ecef_labels[2].setData(pos=z_tip * 1.05)
 
     def _connect_controls(self) -> None:
         """Bind UI controls to the corresponding behavior methods."""

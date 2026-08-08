@@ -96,7 +96,15 @@ class SatelliteConfigurator(QWidget):
         self._sync_view(data)
         QMessageBox.information(self, "Loaded", f"Configuration loaded from {file_path}")
 
+    def reset_satellite_configurator(self):
+        self.satellite_controls.tab_widget.setCurrentIndex(0)
+        self.reset()
+        self.satellite_view.view.setCameraPosition(distance=3.8, elevation=20, azimuth=35)
+
+
     def reset(self) -> None:
+        current_tab = self.satellite_controls.tab_widget.currentWidget().objectName()
+        print(current_tab)
         self.satellite_controls.set_configuration_data({
             "mechanical": {
                 "mass": 12.5,
