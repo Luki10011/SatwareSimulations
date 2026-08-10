@@ -33,7 +33,7 @@ class SatelliteConfigurator(QWidget):
 
         self.satellite_controls.configurationChanged.connect(self._sync_view)
         self.satellite_controls.saveRequested.connect(self._save_configuration)
-        self.satellite_controls.loadRequested.connect(self._load_configuration)
+        self.satellite_controls.loadRequested.connect(self.load_configuration)
         self.satellite_controls.resetRequested.connect(self.reset)
 
         splitter.addWidget(self.satellite_controls)
@@ -67,11 +67,14 @@ class SatelliteConfigurator(QWidget):
             else:
                 self.satellite_controls.clear_errors()
 
-        # Bezpieczne sprawdzenie obecności błędów geometrii w słowniku
+        if errors:
+            self.satellite_controls.tab_widget.setTabEnabled(2, False)
+        else:
+            self.satellite_controls.tab_widget.setTabEnabled(2, True)
+
         has_mass_error = "mass" in errors
         has_dim_error = any(k in errors for k in ("dimensions", "dim_a", "dim_b", "dim_h"))
 
-        # Odśwież widok 3D tylko, gdy masa i wymiary są poprawne
         if not has_mass_error and not has_dim_error:
             self.satellite_view.update_from_data(data)
 
@@ -99,13 +102,8 @@ class SatelliteConfigurator(QWidget):
 
         QMessageBox.information(self, "Saved", f"Configuration saved to {file_path}")
 
-    def _load_configuration(self) -> None:
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Load satellite configuration",
-            str(Path.home()),
-            "JSON files (*.json)",
-        )
+    def load_configuration(self, file_path: str) -> None:
+        
         if not file_path:
             return
 
@@ -125,7 +123,7 @@ class SatelliteConfigurator(QWidget):
     def reset_satellite_configurator(self):
         self.satellite_controls.tab_widget.setCurrentIndex(0)
         self.reset()
-        self.satellite_view.view.setCameraPosition(distance=3.8, elevation=20, azimuth=35)
+        self.satellite_view.view.setCameraPosition(distance=6, elevation=20, azimuth=35)
 
     def reset(self) -> None:
         self.satellite_controls.set_configuration_data({

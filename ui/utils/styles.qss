@@ -521,6 +521,13 @@ QTabWidget#satelliteTabWidget QLabel {
     background: transparent;
 }
 
+QTabWidget#satelliteTabWidget QTabBar::tab:disabled {
+    background-color: rgba(255, 255, 255, 0.01);
+    color: rgba(255, 255, 255, 0.25);            
+    border: 1px solid rgba(255, 255, 255, 0.03);  
+    border-bottom: none;
+}
+
 QLabel#satelliteHeaderLabel {
     color: #ffffff;
     font-weight: bold;

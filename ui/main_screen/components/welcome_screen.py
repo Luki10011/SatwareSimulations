@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QFormLayout, QHBoxLayout, QSplitter, QStyle, QWidget, QVBoxLayout, QLabel, QPushButton
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QPainter, QPixmap, QColor
+from PyQt6.QtGui import QFont, QImage, QPainter, QPixmap, QColor
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 
@@ -140,8 +140,23 @@ class MainScreenWelcome(QWidget):
         """)
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        logo_path = "assets\\graphics\\agh_logo.png"
+
+        # 2. Wczytanie Pixmapy bezpośrednio z pliku
+        pixmap = QPixmap(logo_path)
+
         upper_layout.addWidget(title)
         upper_layout.addWidget(subtitle)
+        if not pixmap.isNull():
+            # 3. Skalowanie z zachowaniem wygładzania (SmoothTransformation)
+            scaled_pixmap = pixmap.scaledToWidth(70, Qt.TransformationMode.SmoothTransformation)
+            
+            logo_label = QLabel()
+            logo_label.setPixmap(scaled_pixmap)
+            
+            # 4. Dodanie do layoutu z wyśrodkowaniem
+            upper_layout.addWidget(logo_label, 0, Qt.AlignmentFlag.AlignCenter)
+
 
         left_widget = QSplitter(Qt.Orientation.Vertical)
         left_widget.setHandleWidth(0)

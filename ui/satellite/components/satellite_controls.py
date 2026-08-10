@@ -98,6 +98,8 @@ class SatelliteControls(QWidget):
         self.btn_save.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_reset.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
+        self._emit_change(mark_errors=False)  
+
     def _build_mechanical_tab(self) -> None:
         form_layout = QFormLayout(self._mechanical_tab)
         form_layout.setContentsMargins(8, 8, 8, 8)
@@ -207,6 +209,8 @@ class SatelliteControls(QWidget):
 
         for index in range(9):
             self.wheel_inertia_tensor[index].setText("")
+            self.wheel_inertia_tensor[index].setReadOnly(True)
+            self.wheel_inertia_tensor[index].setStyleSheet("background-color: #2b2b2b; color: #a9b7c6; border: 1px solid #3c3f41;")
        
         form_layout.addRow(inertia_label)
         form_layout.addRow(wheel_own_inertia_container)
@@ -231,6 +235,16 @@ class SatelliteControls(QWidget):
         self._update_reaction_configuration_ui(self.input_reaction_configuration.currentText())
 
     def _calculate_wheel_inertia(self):
+        errors = self.validate_inputs()
+        has_mass_error = "wheel_mass" in errors
+        has_dim_error = any(k in errors for k in ("wheel_radius", "wheel_height"))
+
+        if has_mass_error or has_dim_error:
+            QMessageBox.warning(self, "Invalid parameters", "Please correct highlighted fields before calculating inertia.")
+            size_errors = {k: v for k, v in errors.items() if k in ("wheel_mass", "wheel_radius", "wheel_height")}
+            self.mark_errors(size_errors, replace_all=False)
+            return
+
         r_mass = float(self.input_wheel_mass.text() or 0.0)
         r_height = float(self.input_wheel_height.text() or 0.0)
         r_radius = float(self.input_wheel_radius.text() or 0.0)
@@ -249,21 +263,15 @@ class SatelliteControls(QWidget):
             self.wheel_inertia_tensor[index].setText(f"{value:.6}")
 
     def _build_summary_tab(self) -> None:
-        if hasattr(self, "btn_reset"):
-            self.btn_reset.setEnabled(False)
                 
         layout = QVBoxLayout(self._summary_tab)
         layout.setContentsMargins(8, 8, 8, 8)
         self.summary_browser = QTextBrowser(self)
         self.summary_browser.setObjectName("satelliteSummaryBrowser")
         self.summary_browser.setReadOnly(True)
-        self.summary_browser.setStyleSheet(
-            "background-color: #ffffff;"
-            "color: #0f172a;"
-            "border: 1px solid #cbd5e1;"
-            "border-radius: 6px;"
-            "padding: 8px;"
-        )
+
+        self.summary_browser.setOpenExternalLinks(True)
+        
         layout.addWidget(self.summary_browser)
 
     def _create_line_edit(self, validator, parent = None) -> QLineEdit:
@@ -477,7 +485,7 @@ class SatelliteControls(QWidget):
         if isinstance(inertia_tensor, (list, tuple)):
             for row in inertia_tensor:
                 if isinstance(row, (list, tuple)):
-                    flat_values.extend([str(value) for value in row[:3]])
+                    flat_values.extend([f"{value:10.8f}" for value in row[:3]])
         for index in range(9):
             self.input_inertia_tensor[index].setText(flat_values[index] if index < len(flat_values) else "")
 
@@ -498,7 +506,7 @@ class SatelliteControls(QWidget):
         if isinstance(wheel_inertia_tensor, (list, tuple)):
             for row in wheel_inertia_tensor:
                 if isinstance(row, (list, tuple)):
-                    flat_wheel_values.extend([str(value) for value in row[:3]])
+                    flat_wheel_values.extend([f"{value:10.8f}" for value in row[:3]])
 
         for index in range(9):
             self.wheel_inertia_tensor[index].setText(flat_wheel_values[index] if index < len(flat_wheel_values) else "")
@@ -531,35 +539,149 @@ class SatelliteControls(QWidget):
         except Exception:
             total_tensor = np.array(mechanical_tensor, dtype=float)
 
-        def fmt(val, fmtstr="{:.3f}"): 
+        def fmt(val, fmtstr="{:.3f}"):
             try:
-                return fmtstr.format(val)
+                return fmtstr.format(float(val))
             except Exception:
-                return "n/a"
+                return "0.000"
 
-        dims = data['mechanical']['dimensions']
-        dim_a = fmt(dims[0]) if isinstance(dims, (list, tuple)) and len(dims) > 0 else "n/a"
-        dim_b = fmt(dims[1]) if isinstance(dims, (list, tuple)) and len(dims) > 1 else "n/a"
-        dim_h = fmt(dims[2]) if isinstance(dims, (list, tuple)) and len(dims) > 2 else "n/a"
+        dims = data["mechanical"].get("dimensions", [])
+        dim_a = fmt(dims[0]) if isinstance(dims, (list, tuple)) and len(dims) > 0 else "0.000"
+        dim_b = fmt(dims[1]) if isinstance(dims, (list, tuple)) and len(dims) > 1 else "0.000"
+        dim_h = fmt(dims[2]) if isinstance(dims, (list, tuple)) and len(dims) > 2 else "0.000"
 
-        lines = [
-            "Satellite configuration summary",
-            "===============================",
-            f"Mass: {fmt(data['mechanical']['mass'])} kg",
-            f"Dimensions: a={dim_a} m, b={dim_b} m, h={dim_h} m",
-            f"Coils: turns={data['electromagnetic']['coil_turns']}, area={fmt(data['electromagnetic']['coil_area'])} m², Imax={fmt(data['electromagnetic']['max_current'])} A",
-            f"Reaction wheels: {reaction_wheels.get('configuration', 'n/a')} ({reaction_wheels.get('wheel_count', 'n/a')} wheels)",
-            f"Wheel geometry: m={fmt(reaction_wheels.get('wheel_mass'))} kg, r={fmt(reaction_wheels.get('wheel_radius'))} m, h={fmt(reaction_wheels.get('wheel_height'))} m",
-            "",
-            "Total inertia tensor [kg·m²] (Steiner correction):",
-            f"Jxx = {fmt(total_tensor[0, 0], '{:.6f}')}",
-            f"Jyy = {fmt(total_tensor[1, 1], '{:.6f}')}",
-            f"Jzz = {fmt(total_tensor[2, 2], '{:.6f}')}",
-            f"Jxy = {fmt(total_tensor[0, 1], '{:.6f}')}",
-            f"Jxz = {fmt(total_tensor[0, 2], '{:.6f}')}",
-            f"Jyz = {fmt(total_tensor[1, 2], '{:.6f}')}",
-        ]
-        self.summary_browser.setPlainText("\n".join(lines))
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 13px;
+                color: #e0e0e0;
+                background-color: #1e1e1e;
+                margin: 5px;
+            }}
+            h2 {{
+                color: #ffffff;
+                border-bottom: 1px solid #0288d1;
+                padding-bottom: 4px;
+                margin-top: 14px;
+                margin-bottom: 8px;
+                font-size: 14px;
+            }}
+            .summary-table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 10px;
+            }}
+            .summary-table td {{
+                padding: 4px 8px;
+                border-bottom: 1px solid #2a2a2a;
+            }}
+            .summary-table td.label {{
+                font-weight: bold;
+                color: #b0bec5;
+                width: 45%;
+            }}
+            .summary-table td.value {{
+                color: #ffffff;
+            }}
+            .tensor-table {{
+                border-collapse: collapse;
+                margin-top: 6px;
+                margin-bottom: 10px;
+            }}
+            .tensor-table td {{
+                border: 1px solid #3f3f3f;
+                padding: 5px 10px;
+                text-align: right;
+                font-family: 'Consolas', 'Courier New', monospace;
+                background-color: #252526;
+                color: #ffffff;
+            }}
+            .badge {{
+                background-color: #0288d1;
+                color: #ffffff;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: bold;
+            }}
+        </style>
+        </head>
+        <body>
+            <h2> Satellite Mechanical Properties</h2>
+            <table class="summary-table">
+                <tr>
+                    <td class="label">Total Mass:</td>
+                    <td class="value">{fmt(data['mechanical']['mass'])} kg</td>
+                </tr>
+                <tr>
+                    <td class="label">Dimensions (a x b x h):</td>
+                    <td class="value">{dim_a} x {dim_b} x {dim_h} m</td>
+                </tr>
+            </table>
+
+            <h2> Electromagnetic Coils</h2>
+            <table class="summary-table">
+                <tr>
+                    <td class="label">Turns Count:</td>
+                    <td class="value">{data['electromagnetic']['coil_turns']}</td>
+                </tr>
+                <tr>
+                    <td class="label">Coil Area:</td>
+                    <td class="value">{fmt(data['electromagnetic']['coil_area'])} m²</td>
+                </tr>
+                <tr>
+                    <td class="label">Max Current:</td>
+                    <td class="value">{fmt(data['electromagnetic']['max_current'])} A</td>
+                </tr>
+            </table>
+
+            <h2> Reaction Wheels Subsystem</h2>
+            <table class="summary-table">
+                <tr>
+                    <td class="label">Configuration:</td>
+                    <td class="value">
+                        {str(reaction_wheels.get('configuration', 'n/a')).upper()} 
+                        ({reaction_wheels.get('wheel_count', 'n/a')} wheels)
+                    </td>
+                </tr>
+                <tr>
+                    <td class="label">Single Wheel Mass:</td>
+                    <td class="value">{fmt(reaction_wheels.get('wheel_mass'))} kg</td>
+                </tr>
+                <tr>
+                    <td class="label">Wheel Dimensions (r, h):</td>
+                    <td class="value">{fmt(reaction_wheels.get('wheel_radius'))} m, {fmt(reaction_wheels.get('wheel_height'))} m</td>
+                </tr>
+            </table>
+
+            <h2> Total Inertia Tensor [kg·m²]</h2>
+            <p style="color: #888; font-size: 11px; margin-top: 2px;">Includes body inertia and reaction wheels Steiner correction offset:</p>
+            <table class="tensor-table">
+                <tr>
+                    <td>{fmt(total_tensor[0, 0], '{:.6f}')}</td>
+                    <td>{fmt(total_tensor[0, 1], '{:.6f}')}</td>
+                    <td>{fmt(total_tensor[0, 2], '{:.6f}')}</td>
+                </tr>
+                <tr>
+                    <td>{fmt(total_tensor[1, 0], '{:.6f}')}</td>
+                    <td>{fmt(total_tensor[1, 1], '{:.6f}')}</td>
+                    <td>{fmt(total_tensor[1, 2], '{:.6f}')}</td>
+                </tr>
+                <tr>
+                    <td>{fmt(total_tensor[2, 0], '{:.6f}')}</td>
+                    <td>{fmt(total_tensor[2, 1], '{:.6f}')}</td>
+                    <td>{fmt(total_tensor[2, 2], '{:.6f}')}</td>
+                </tr>
+            </table>
+        </body>
+        </html>
+        """
+
+        self.summary_browser.setHtml(html_content)
 
     def validate_inputs(self) -> Dict[str, str]:
         return validate_satellite_configuration_data(self.get_configuration_data())

@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
         satellite_menu.addAction(satellite_action)
 
         load_satellite_action = QAction("&Load Satellite Configuration from File", self)
+        load_satellite_action.triggered.connect(self.load_satellite_configuration)
         satellite_menu.addAction(load_satellite_action)
 
 
@@ -134,6 +135,25 @@ class MainWindow(QMainWindow):
             else:
                 return
         self._run_safe_transition(heavy_action= lambda : self.central_stacked_widget.setCurrentIndex(3))
+
+    def load_satellite_configuration(self):
+        """Opens a file dialog to load satellite configuration data from a JSON file and passes it to the satellite configurator screen."""
+        if self._is_switching:
+            return
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Satellite Configuration",
+            "",
+            "JSON Files (*.json);;All Files (*)"
+        )
+
+        if file_path:
+            def action():
+                self.satellite_configurator.load_configuration(file_path)
+                self.central_stacked_widget.setCurrentIndex(3)
+
+            self._run_safe_transition(heavy_action=action)
 
     def close_application(self):
         if self._is_switching:
@@ -234,6 +254,7 @@ class MainWindow(QMainWindow):
         if file_path:
             def action():
                 self.orbit_designer_screen.load_orbit_from_file(file_path)
+                self.central_stacked_widget.setCurrentIndex(2)
 
             self._run_safe_transition(heavy_action=action)
 

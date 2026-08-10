@@ -18,10 +18,13 @@ COIL_TURNS_MIN = 1
 COIL_TURNS_MAX = 5000
 
 COIL_AREA_MIN = 0.0001  # m^2 (1 cm^2)
-COIL_AREA_MAX = 0.25    # m^2
+COIL_AREA_MAX = DIM_MAX**2       # m^2
 
 MAX_CURRENT_MIN = 0.01  # A
 MAX_CURRENT_MAX = 10.0  # A
+
+MIN_REACTION_WHEEL_RPM = 3000.0
+MAX_REACTION_WHEEL_RPM = 10000.0
 
 
 @dataclass
@@ -218,7 +221,7 @@ def calculate_total_inertia_tensor(
         # 4. Sumowanie składników I_RBi^B
         i_rbi_b = i_ri_b + steiner_term
         i_s += i_rbi_b
-
+        i_s[np.abs(i_s) < 1e-15] = 0.0  
     return i_s
 
 
@@ -325,8 +328,8 @@ def validate_satellite_configuration_data(data: Dict[str, Any]) -> Dict[str, str
             errors["wheel_radius"] = "Reaction wheel radius must be greater than zero."
         if wheel_height <= 0.0:
             errors["wheel_height"] = "Reaction wheel height must be greater than zero."
-        if wheel_max_speed <= 0.0:
-            errors["wheel_max_speed"] = "Reaction wheel max speed must be greater than zero."
+        if not (MIN_REACTION_WHEEL_RPM <= wheel_max_speed <= MAX_REACTION_WHEEL_RPM):
+            errors["wheel_max_speed"] = f"Reaction wheel max speed must be between {MIN_REACTION_WHEEL_RPM} and {MAX_REACTION_WHEEL_RPM} RPM."
 
     return errors
 
