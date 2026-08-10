@@ -146,7 +146,6 @@ class SatelliteConfigurator(QWidget):
                 "wheel_radius": "",
                 "wheel_height": "",
                 "wheel_max_speed": "",
-                "com_offset": ["", "", ""],
                 "inertia_tensor": [],
             },
         })

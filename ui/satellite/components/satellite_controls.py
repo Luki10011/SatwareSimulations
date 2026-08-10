@@ -30,7 +30,8 @@ from core.physics.dataclasses.satellite_configuration import (
     MAX_CURRENT_MAX,
     calculate_box_inertia_tensor,
     calculate_total_inertia_tensor,
-    calculate_reaction_wheel_inertia_tensor,
+    calculate_reaction_wheel_local_inertia,
+    reaction_wheel_axes,
     validate_satellite_configuration_data,
 )
 import numpy as np
@@ -190,11 +191,9 @@ class SatelliteControls(QWidget):
         self.input_wheel_radius = self._create_line_edit(double_validator)
         self.input_wheel_height = self._create_line_edit(double_validator)
         self.input_wheel_max_speed = self._create_line_edit(double_validator)
-        self.input_wheel_com_offset = [self._create_line_edit(double_validator) for _ in range(3)]
         form_layout.addRow("Wheel mass [kg]:", self.input_wheel_mass)
         form_layout.addRow("Wheel radius [m]:", self.input_wheel_radius)
         form_layout.addRow("Wheel height [m]:", self.input_wheel_height)
-        form_layout.addRow("Wheel COM offset [m]:", self._create_horizontal_inputs(self.input_wheel_com_offset))
         form_layout.addRow("Max speed [rpm]:", self.input_wheel_max_speed)
 
         wheel_inertia_val = QDoubleValidator(0.0, 10.0, 6, self)
@@ -212,7 +211,19 @@ class SatelliteControls(QWidget):
         form_layout.addRow(inertia_label)
         form_layout.addRow(wheel_own_inertia_container)
 
-        btn_calculte_wheel_inertia = QPushButton("Calculate J<sub>R</sub>")
+        btn_calculte_wheel_inertia = QPushButton()
+
+        calculate_inertia_label = QLabel("Calculate J<sub>R</sub>")
+        calculate_inertia_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        calculate_inertia_label.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents
+        )
+
+        layout = QHBoxLayout(btn_calculte_wheel_inertia)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(calculate_inertia_label)
+
         btn_calculte_wheel_inertia.clicked.connect(self._calculate_wheel_inertia)
 
         form_layout.addRow(btn_calculte_wheel_inertia)
@@ -223,7 +234,7 @@ class SatelliteControls(QWidget):
         r_mass = float(self.input_wheel_mass.text() or 0.0)
         r_height = float(self.input_wheel_height.text() or 0.0)
         r_radius = float(self.input_wheel_radius.text() or 0.0)
-        calculated_inertia_tensor = calculate_reaction_wheel_inertia_tensor(
+        calculated_inertia_tensor = calculate_reaction_wheel_local_inertia(
             r_mass,
             r_radius,
             r_height
@@ -299,7 +310,6 @@ class SatelliteControls(QWidget):
             self.input_wheel_radius,
             self.input_wheel_height,
             self.input_wheel_max_speed,
-            *self.input_wheel_com_offset,
         ]:
             field.textChanged.connect(self._on_field_text_changed)
             field.editingFinished.connect(self._on_field_finished)
@@ -384,9 +394,6 @@ class SatelliteControls(QWidget):
         self.input_wheel_mass.setText("")
         self.input_wheel_radius.setText("")
         self.input_wheel_height.setText("")
-        self.input_wheel_com_offset[0].setText("")
-        self.input_wheel_com_offset[1].setText("")
-        self.input_wheel_com_offset[2].setText("")
         self.input_wheel_max_speed.setText("")
         self._silent_update = False
 
@@ -446,7 +453,6 @@ class SatelliteControls(QWidget):
                 "wheel_radius": self._to_float(self.input_wheel_radius.text()),
                 "wheel_height": self._to_float(self.input_wheel_height.text()),
                 "wheel_max_speed": self._to_float(self.input_wheel_max_speed.text()),
-                "com_offset": [self._to_float(field.text()) for field in self.input_wheel_com_offset],
                 "inertia_tensor": reaction_wheel_inertia_rows,
             },
         }
@@ -487,13 +493,6 @@ class SatelliteControls(QWidget):
         self.input_wheel_height.setText("" if reaction_wheels.get("wheel_height") in (None, "None") else str(reaction_wheels.get("wheel_height", "")))
         self.input_wheel_max_speed.setText("" if reaction_wheels.get("wheel_max_speed") in (None, "None") else str(reaction_wheels.get("wheel_max_speed", "")))
 
-        com_offset = reaction_wheels.get("com_offset") or []
-        for index in range(3):
-            if index < len(com_offset):
-                self.input_wheel_com_offset[index].setText(str(com_offset[index]))
-            else:
-                self.input_wheel_com_offset[index].setText("")
-
         wheel_inertia_tensor = reaction_wheels.get("inertia_tensor", [])
         flat_wheel_values = []
         if isinstance(wheel_inertia_tensor, (list, tuple)):
@@ -518,14 +517,16 @@ class SatelliteControls(QWidget):
         reaction_wheels = data["reaction_wheels"]
 
         try:
+            wheel_axes = reaction_wheel_axes(
+                reaction_wheels.get("configuration", "principal"),
+                int(reaction_wheels.get("wheel_count", 3)),
+            )
             total_tensor = calculate_total_inertia_tensor(
                 mechanical_tensor=np.array(mechanical_tensor, dtype=float),
-                mechanical_mass=data["mechanical"]["mass"],
                 wheel_mass=reaction_wheels["wheel_mass"],
                 wheel_radius=reaction_wheels["wheel_radius"],
                 wheel_height=reaction_wheels["wheel_height"],
-                wheel_count=reaction_wheels["wheel_count"],
-                com_offset=np.array(reaction_wheels.get("com_offset", [0.003, 0.002, 0.001]), dtype=float),
+                wheel_axes=wheel_axes,
             )
         except Exception:
             total_tensor = np.array(mechanical_tensor, dtype=float)

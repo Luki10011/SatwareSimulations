@@ -2,6 +2,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
+from pyparsing import Optional
+
 # Physical validation constants for CubeSats / Microsatellites
 MASS_MIN = 0.1          # kg
 MASS_MAX = 50.0         # kg
@@ -46,7 +48,6 @@ class SatelliteReactionWheelsConfiguration:
     wheel_radius: float       # wheel radius [m]
     wheel_height: float       # wheel thickness / height [m]
     wheel_max_speed: float    # max angular speed [rpm]
-    com_offset: np.ndarray    # offset of wheel assembly COM [m]
     inertia_tensor: np.ndarray  # inertia tensor of the reaction wheel assembly [kg * m^2]
 
 
@@ -79,54 +80,146 @@ def calculate_box_inertia_tensor(mass: float, a: float, b: float, h: float) -> n
     return np.diag([j_xx, j_yy, j_zz])
 
 
-def calculate_reaction_wheel_inertia_tensor(wheel_mass: float, wheel_radius: float, wheel_height: float) -> np.ndarray:
-    """Return the inertia tensor of a thin cylindrical wheel about its own center."""
+def skew_symmetric_matrix(vector: np.ndarray) -> np.ndarray:
+    """Return the 3x3 skew-symmetric matrix S(r) for a 3D vector."""
+    x, y, z = vector
+    return np.array(
+        [
+            [0.0, -z, y],
+            [z, 0.0, -x],
+            [-y, x, 0.0]
+        ],
+        dtype=float
+    )
+
+
+def calculate_rotation_matrix_to_axis(target_axis: np.ndarray) -> np.ndarray:
+    """
+    Computes rotation matrix T_Ri that aligns local z-axis [0, 0, 1] with target_axis n_Ri.
+    Uses Rodrigues' rotation formula.
+    """
+    z_local = np.array([0.0, 0.0, 1.0], dtype=float)
+    n_ri = np.array(target_axis, dtype=float)
+    
+    norm = np.linalg.norm(n_ri)
+    if norm == 0.0:
+        return np.eye(3, dtype=float)
+    n_ri = n_ri / norm
+
+    dot_prod = np.dot(z_local, n_ri)
+
+    # Przypadek gdy osie są ze sobą zgodne (kąt 0 deg)
+    if np.isclose(dot_prod, 1.0):
+        return np.eye(3, dtype=float)
+    
+    # Przypadek gdy osie są przeciwbieżne (kąt 180 deg)
+    if np.isclose(dot_prod, -1.0):
+        return np.diag([1.0, -1.0, -1.0])
+
+    # Wektor osi obrotu (iloczyn wektorowy)
+    v = np.cross(z_local, n_ri)
+    s_v = skew_symmetric_matrix(v)
+    
+    # Formuła Rodrigues'a dla macierzy obrotu
+    r_matrix = np.eye(3, dtype=float) + s_v + (s_v @ s_v) * (1.0 / (1.0 + dot_prod))
+    return r_matrix
+
+
+def calculate_reaction_wheel_local_inertia(wheel_mass: float, wheel_radius: float, wheel_height: float) -> np.ndarray:
+    """
+    Return local inertia tensor I_RWi for a cylindrical wheel in its own frame (spin axis along z_local).
+    """
     if wheel_mass <= 0.0 or wheel_radius <= 0.0 or wheel_height <= 0.0:
         return np.zeros((3, 3), dtype=float)
 
-    i_xy = 0.25 * wheel_mass * wheel_radius**2
-    i_z = 0.5 * wheel_mass * wheel_radius**2
-    return np.array(
-        [
-            [i_xy + wheel_mass * wheel_height**2 / 12.0, 0.0, 0.0],
-            [0.0, i_xy + wheel_mass * wheel_height**2 / 12.0, 0.0],
-            [0.0, 0.0, i_z],
-        ],
-        dtype=float,
-    )
+    j_spin = 0.5 * wheel_mass * (wheel_radius**2)  # Os obrotu (z_local)
+    j_transverse = (1.0 / 12.0) * wheel_mass * (3.0 * (wheel_radius**2) + (wheel_height**2))
+
+    return np.diag([j_transverse, j_transverse, j_spin])
+
+
+def calculate_axisymmetric_cylinder_inertia_tensor(
+    wheel_mass: float,
+    wheel_radius: float,
+    wheel_height: float,
+    axis: np.ndarray,
+) -> np.ndarray:
+    """
+    Transform wheel inertia tensor from local frame to body frame: I_Ri^B = T_Ri^T * I_RWi * T_Ri
+    (Eq. tensor_transformacja)
+    """
+    i_rwi = calculate_reaction_wheel_local_inertia(wheel_mass, wheel_radius, wheel_height)
+    t_ri = calculate_rotation_matrix_to_axis(axis)
+    
+    # Wzór: I_Ri_B = T_Ri^T * I_RWi * T_Ri
+    i_ri_b = t_ri.T @ i_rwi @ t_ri
+    return i_ri_b
+
+
+def reaction_wheel_axes(configuration: str, wheel_count: int) -> List[np.ndarray]:
+    """Return normalized spin axes n_Ri for a given reaction wheel layout."""
+    config = str(configuration or "").strip().lower()
+    
+    if config == "pyramid" and wheel_count == 4:
+        axes = [
+            np.array([1.0, 1.0, 1.0], dtype=float),
+            np.array([1.0, -1.0, -1.0], dtype=float),
+            np.array([-1.0, 1.0, -1.0], dtype=float),
+            np.array([-1.0, -1.0, 1.0], dtype=float),
+        ]
+    else:
+        axes = [
+            np.array([1.0, 0.0, 0.0], dtype=float),
+            np.array([0.0, 1.0, 0.0], dtype=float),
+            np.array([0.0, 0.0, 1.0], dtype=float),
+        ]
+
+    normalized_axes = []
+    for axis in axes[: max(1, min(len(axes), wheel_count))]:
+        norm = np.linalg.norm(axis)
+        if norm > 0.0:
+            normalized_axes.append(axis / norm)
+            
+    return normalized_axes
 
 
 def calculate_total_inertia_tensor(
     mechanical_tensor: np.ndarray,
-    mechanical_mass: float,
     wheel_mass: float,
     wheel_radius: float,
     wheel_height: float,
-    wheel_count: int,
-    com_offset: np.ndarray,
+    wheel_axes: List[np.ndarray],
+    wheel_offsets: List[np.ndarray] = None,
 ) -> np.ndarray:
-    """Add wheel inertia using Steiner's theorem for a moved center of mass."""
-    total = np.array(mechanical_tensor, dtype=float, copy=True)
-    wheel_tensor = calculate_reaction_wheel_inertia_tensor(wheel_mass, wheel_radius, wheel_height)
+    """
+    Calculate full inertia tensor I_S = I_B + sum(I_RBi^B).
+    Integrates coordinate rotation and Steiner's theorem.
+    """
+    i_s = np.array(mechanical_tensor, dtype=float, copy=True)
 
-    if wheel_count <= 0:
-        return total
+    for i, axis in enumerate(wheel_axes):
+        # 1. Transformacja osi i wyznaczenie I_Ri^B
+        i_ri_b = calculate_axisymmetric_cylinder_inertia_tensor(
+            wheel_mass, wheel_radius, wheel_height, axis
+        )
 
-    offset = np.array(com_offset, dtype=float)
-    offset_sq = float(np.dot(offset, offset))
-    total += wheel_count * wheel_tensor
-    total += wheel_count * wheel_mass * np.array(
-        [
-            [offset_sq - offset[0]**2, -offset[0] * offset[1], -offset[0] * offset[2]],
-            [-offset[1] * offset[0], offset_sq - offset[1]**2, -offset[1] * offset[2]],
-            [-offset[2] * offset[0], -offset[2] * offset[1], offset_sq - offset[2]**2],
-        ],
-        dtype=float,
-    )
+        # 2. Wyznaczenie wektora przesunięcia r_Ri
+        if wheel_offsets is not None and i < len(wheel_offsets):
+            r_ri = np.array(wheel_offsets[i], dtype=float)
+        else:
+            # Domyślny nominalny offset 5 mm wzdłuż osi obrotu koła
+            norm_axis = axis / np.linalg.norm(axis) if np.linalg.norm(axis) > 0 else axis
+            r_ri = norm_axis * 0.005
 
-    return total
+        # 3. Twierdzenie Steinera: m_R * S(r_Ri) * S(r_Ri)^T
+        s_r = skew_symmetric_matrix(r_ri)
+        steiner_term = wheel_mass * (s_r @ s_r.T)
 
+        # 4. Sumowanie składników I_RBi^B
+        i_rbi_b = i_ri_b + steiner_term
+        i_s += i_rbi_b
 
+    return i_s
 
 
 def validate_satellite_configuration_data(data: Dict[str, Any]) -> Dict[str, str]:
@@ -136,7 +229,6 @@ def validate_satellite_configuration_data(data: Dict[str, Any]) -> Dict[str, str
     electromagnetic = data.get("electromagnetic", {})
     reaction_wheels = data.get("reaction_wheels", {})
 
-    print(f"Validating mass: {mechanical.get("mass")}")
     # --- MECHANICAL VALIDATION ---
     mass = _coerce_float(mechanical.get("mass"), 0.0)
     if not (MASS_MIN <= mass <= MASS_MAX):
@@ -254,17 +346,18 @@ def build_satellite_configuration(data: Dict[str, Any]) -> SatelliteConfiguratio
     wheel_radius = _coerce_float(reaction_wheels.get("wheel_radius"), 0.05)
     wheel_height = _coerce_float(reaction_wheels.get("wheel_height"), 0.02)
     wheel_max_speed = _coerce_float(reaction_wheels.get("wheel_max_speed"), 6000.0)
-    com_offset = np.array(reaction_wheels.get("com_offset", [0.003, 0.002, 0.001]), dtype=float)
+    wheel_axes_list = reaction_wheel_axes(
+        str(reaction_wheels.get("configuration", "principal")).strip().lower(),
+        _coerce_int(reaction_wheels.get("wheel_count"), 3),
+    )
 
-    wheel_tensor = calculate_reaction_wheel_inertia_tensor(wheel_mass, wheel_radius, wheel_height)
+    wheel_tensor = calculate_reaction_wheel_local_inertia(wheel_mass, wheel_radius, wheel_height)
     total_tensor = calculate_total_inertia_tensor(
         mechanical_tensor=inertia_array,
-        mechanical_mass=_coerce_float(mechanical.get("mass"), 12.5),
         wheel_mass=wheel_mass,
         wheel_radius=wheel_radius,
         wheel_height=wheel_height,
-        wheel_count=_coerce_int(reaction_wheels.get("wheel_count"), 3),
-        com_offset=com_offset,
+        wheel_axes=wheel_axes_list,
     )
 
     return SatelliteConfiguration(
@@ -287,7 +380,6 @@ def build_satellite_configuration(data: Dict[str, Any]) -> SatelliteConfiguratio
             wheel_radius=wheel_radius,
             wheel_height=wheel_height,
             wheel_max_speed=wheel_max_speed,
-            com_offset=com_offset,
             inertia_tensor=wheel_tensor,
         ),
     )
@@ -312,7 +404,6 @@ def serialize_satellite_configuration(config: SatelliteConfiguration) -> Dict[st
             "wheel_radius": config.reaction_wheels.wheel_radius,
             "wheel_height": config.reaction_wheels.wheel_height,
             "wheel_max_speed": config.reaction_wheels.wheel_max_speed,
-            "com_offset": config.reaction_wheels.com_offset.tolist(),
             "inertia_tensor": config.reaction_wheels.inertia_tensor.tolist(),
         },
     }

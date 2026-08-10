@@ -4,6 +4,8 @@ import pyqtgraph.opengl as gl
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QWidget, QVBoxLayout
 
+from core.physics.dataclasses.satellite_configuration import reaction_wheel_axes
+
 
 class SatelliteScene(QWidget):
 
@@ -15,7 +17,7 @@ class SatelliteScene(QWidget):
         self._panel_items = []
         self._wheel_items = []
         self.setup_view()
-        self.set_dimensions((0.3, 0.2, 0.1), wheel_count=3)
+        self.set_dimensions((0.3, 0.2, 0.1))
 
     def setup_view(self) -> None:
         layout = QVBoxLayout(self)
@@ -63,7 +65,7 @@ class SatelliteScene(QWidget):
         mesh_data = gl.MeshData(vertexes=vertices, faces=faces)
         return gl.GLMeshItem(meshdata=mesh_data, smooth=True, color=color, shader="shaded", glOptions="opaque")
 
-    def set_dimensions(self, dimensions, wheel_count: int = 3) -> None:
+    def set_dimensions(self, dimensions, wheel_axes=None) -> None:
         self._clear_scene()
 
         a, b, h = dimensions
@@ -107,22 +109,36 @@ class SatelliteScene(QWidget):
             self.view.addItem(panel_item)
             self._panel_items.append(panel_item)
 
-        wheel_radius = min(a_scaled, b_scaled, h_scaled) * 0.12
-        if wheel_count >= 3:
-            wheel_positions = [
-                (0.0, b_scaled * 0.55, 0.0),
-                (-a_scaled * 0.3, -b_scaled * 0.25, 0.0),
-                (a_scaled * 0.3, -b_scaled * 0.25, 0.0),
+        wheel_radius = min(a_scaled, b_scaled, h_scaled) * 0.08
+        if wheel_axes is None:
+            wheel_axes = [
+                np.array([1.0, 0.0, 0.0], dtype=float),
+                np.array([0.0, 1.0, 0.0], dtype=float),
+                np.array([0.0, 0.0, 1.0], dtype=float),
             ]
-        else:
-            wheel_positions = [(0.0, b_scaled * 0.55, 0.0)]
 
-        for x_pos, y_pos, z_pos in wheel_positions[:max(wheel_count, 1)]:
+        for axis in wheel_axes:
+            axis = np.array(axis, dtype=float)
+            norm = np.linalg.norm(axis)
+            if norm == 0.0:
+                continue
+            axis_unit = axis / norm
+            position = axis_unit * 0.005 * scale_factor
+
             wheel_mesh = gl.MeshData.sphere(rows=12, cols=12, radius=wheel_radius)
             wheel_item = gl.GLMeshItem(meshdata=wheel_mesh, smooth=True, color=(0.95, 0.8, 0.25, 1.0), shader="shaded", glOptions="opaque")
-            wheel_item.translate(x_pos, y_pos, z_pos, local=False)
+            wheel_item.translate(float(position[0]), float(position[1]), float(position[2]), local=False)
             self.view.addItem(wheel_item)
             self._wheel_items.append(wheel_item)
+
+            axis_line = gl.GLLinePlotItem(
+                pos=np.array([[0.0, 0.0, 0.0], position], dtype=np.float32),
+                color=(1.0, 0.3, 0.3, 0.9),
+                width=2.0,
+                glOptions="opaque",
+            )
+            self.view.addItem(axis_line)
+            self._wheel_items.append(axis_line)
 
     def update_from_data(self, data: dict) -> None:
         mechanical = data.get("mechanical", {})
@@ -130,4 +146,8 @@ class SatelliteScene(QWidget):
         if len(dimensions) < 3:
             dimensions = [0.3, 0.2, 0.1]
         reaction_wheels = data.get("reaction_wheels", {})
-        self.set_dimensions(tuple(dimensions[:3]), wheel_count=int(reaction_wheels.get("wheel_count", 3)))
+        wheel_axes = reaction_wheel_axes(
+            str(reaction_wheels.get("configuration", "principal")).strip().lower(),
+            int(reaction_wheels.get("wheel_count", 3)),
+        )
+        self.set_dimensions(tuple(dimensions[:3]), wheel_axes=wheel_axes)
