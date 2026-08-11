@@ -53,10 +53,8 @@ class PredefinedOrbitDialog(QDialog):
         right_layout.addWidget(self.description_text)
         content_layout.addLayout(right_layout, stretch=3)
         
-        # Dodajemy układ zawartości do głównego okna
         main_layout.addLayout(content_layout)
         
-        # --- DOLNA STRONA: PRZYCISKI STANDARDOWE (OK / Anuluj) ---
         self.button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )

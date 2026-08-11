@@ -13,6 +13,15 @@ CONSTANTS : Dict[str, float] ={
     "omega_E" : 7.292115e-5                    # Earth's rotation speed [rad/s]
 }
 
+ORBITAL_RANGES : Dict[str, tuple] = {
+    "a": (CONSTANTS["R"] * 1e-3 + 100, 50000),
+    "e": (0, 0.99),
+    "i": (0, 180),
+    "RAAN": (0, 359.9),
+    "arg_perigee": (0, 359.9),
+    "true_anomaly": (-360.0, 360.0),
+}
+
 ISS : Dict[str, float] = {
     "semi_major_axis" : 6.731e3,                # Semi-major axis of the ISS orbit in kilometers
     "eccentricity" : 0.0,                       # Eccentricity of the ISS orbit

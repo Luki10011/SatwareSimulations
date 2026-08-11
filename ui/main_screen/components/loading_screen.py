@@ -12,7 +12,7 @@ class LoadingScreen(QWidget):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        self.label = QLabel("Loading 3D Orbit Graphics Context...")
+        self.label = QLabel("Loading 3D Graphics Context...")
         self.label.setStyleSheet("""
             color: #ffffff; 
             font-size: 13pt; 
@@ -20,7 +20,6 @@ class LoadingScreen(QWidget):
         """)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Animowany pasek postępu (tryb marquee)
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 0) 
         self.progress_bar.setFixedWidth(320)

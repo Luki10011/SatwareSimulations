@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QAction, QMatrix4x4, QPalette
 import qdarktheme
 from ui.main_screen.components.predefined_orbit import PredefinedOrbitDialog
+from ui.main_screen.components.simulation_dialog import SimulationDialog
 from ui.main_screen.components.welcome_screen import MainScreenWelcome
 from ui.orbits.orbit_designer import OrbitDesigner  
 from ui.main_screen.components.loading_screen import LoadingScreen
@@ -18,7 +19,7 @@ class MainWindow(QMainWindow):
     """Główne okno aplikacji zarządzające menu i przełączaniem widoków."""
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Orbit Dynamic Analyzer - Praca Magisterska")
+        self.setWindowTitle("Satware Simulations")
         self.resize(1280, 720) 
         
         self.load_stylesheet("ui/utils/styles.qss")
@@ -64,6 +65,8 @@ class MainWindow(QMainWindow):
         # Index 3: Satellite Configurator
         self.satellite_configurator = SatelliteConfigurator()
         self.central_stacked_widget.addWidget(self.satellite_configurator)
+
+        # Index 4: Simulation screen
         
         self.central_stacked_widget.setCurrentIndex(0)
 
@@ -108,13 +111,14 @@ class MainWindow(QMainWindow):
         satellite_menu.addAction(load_satellite_action)
 
 
-        experiment_menu = menu_bar.addMenu("Experiments")
+        simulation_menu = menu_bar.addMenu("&Simulations")
 
-        create_new_experiment_action = QAction("&Create new Experiment", self)
-        load_experment_from_file = QAction("&Load Experiment from File", self)
+        create_new_simulation_action = QAction("&Create new Simulation", self)
+        load_simulation_from_file = QAction("&Load Simulation from File", self)
 
-        experiment_menu.addAction(create_new_experiment_action)
-        experiment_menu.addAction(load_experment_from_file)
+        simulation_menu.addAction(create_new_simulation_action)
+        create_new_simulation_action.triggered.connect(self.create_new_simulation)
+        simulation_menu.addAction(load_simulation_from_file)
 
 
     def show_satellite_configurator(self):
@@ -239,6 +243,26 @@ class MainWindow(QMainWindow):
 
                 self._run_safe_transition(heavy_action=action)
 
+    def create_new_simulation(self):
+        """Switches to simulation view using the transition effect."""
+        if self._is_switching:
+            return
+
+        dialog = SimulationDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+
+            if dialog.selected_orbit and dialog.selected_satellite:
+                selected_orbit = dialog.selected_orbit
+                selected_satellite = dialog.selected_satellite
+
+                def action():
+                    self.simulation_screen.load_simulation(selected_orbit, selected_satellite)
+                    self.central_stacked_widget.setCurrentIndex(4)
+
+                self._run_safe_transition(heavy_action=action)
+            else:
+                QMessageBox.warning(self, "Invalid Parameters", "Please select both an orbit and a satellite configuration to proceed with the simulation.")
+
     def load_orbit(self):
         """Opens a file dialog to load orbit data from a JSON file and passes it to the orbit designer screen."""
         if self._is_switching:
@@ -257,34 +281,3 @@ class MainWindow(QMainWindow):
                 self.central_stacked_widget.setCurrentIndex(2)
 
             self._run_safe_transition(heavy_action=action)
-
-def apply_dark_palette(app: QApplication):
-    dark_palette = QPalette()
-
-    # Kolory tła i elementów tekstowych
-    dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
-    dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(212, 212, 212))
-    dark_palette.setColor(QPalette.ColorRole.Base, QColor(25, 25, 25))
-    dark_palette.setColor(
-        QPalette.ColorRole.AlternateBase, QColor(45, 45, 45)
-    )
-    dark_palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(255, 255, 255))
-    dark_palette.setColor(QPalette.ColorRole.ToolTipText, QColor(255, 255, 255))
-    dark_palette.setColor(QPalette.ColorRole.Text, QColor(212, 212, 212))
-    dark_palette.setColor(QPalette.ColorRole.Button, QColor(45, 45, 45))
-    dark_palette.setColor(QPalette.ColorRole.ButtonText, QColor(212, 212, 212))
-
-    # Kolory akcentu (pomarańczowy pasujący do śladu naziemnego)
-    dark_palette.setColor(QPalette.ColorRole.Highlight, QColor(255, 159, 41))
-    dark_palette.setColor(
-        QPalette.ColorRole.HighlightedText, QColor(0, 0, 0)
-    )
-
-    app.setPalette(dark_palette)
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    # apply_dark_palette(app)
-    window.show()
-    sys.exit(app.exec())

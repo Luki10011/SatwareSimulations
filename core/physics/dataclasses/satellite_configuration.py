@@ -111,11 +111,9 @@ def calculate_rotation_matrix_to_axis(target_axis: np.ndarray) -> np.ndarray:
 
     dot_prod = np.dot(z_local, n_ri)
 
-    # Przypadek gdy osie są ze sobą zgodne (kąt 0 deg)
     if np.isclose(dot_prod, 1.0):
         return np.eye(3, dtype=float)
     
-    # Przypadek gdy osie są przeciwbieżne (kąt 180 deg)
     if np.isclose(dot_prod, -1.0):
         return np.diag([1.0, -1.0, -1.0])
 
@@ -154,7 +152,6 @@ def calculate_axisymmetric_cylinder_inertia_tensor(
     i_rwi = calculate_reaction_wheel_local_inertia(wheel_mass, wheel_radius, wheel_height)
     t_ri = calculate_rotation_matrix_to_axis(axis)
     
-    # Wzór: I_Ri_B = T_Ri^T * I_RWi * T_Ri
     i_ri_b = t_ri.T @ i_rwi @ t_ri
     return i_ri_b
 

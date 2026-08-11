@@ -22,7 +22,7 @@ from ui.orbits.components.orbit_controls import OrbitControlsWidget
 from ui.orbits.components.orbit_scene import OrbitSceneHelper
 from ui.orbits.components.J2_analyzer_controls import J2AnalyzerControlsWidget
 from ui.orbits.components.characteristics_tab import OrbitCharacteristicsTab
-from utils.constants import CONSTANTS
+from utils.constants import CONSTANTS, ORBITAL_RANGES
 import json
 from utils.configuration import dt
 from PyQt6.QtGui import QFont, QMatrix4x4   
@@ -36,14 +36,7 @@ class OrbitDesigner(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self.ranges = {
-            "a": (CONSTANTS["R"] * 1e-3 + 100, 50000),
-            "e": (0, 0.99),
-            "i": (0, 180),
-            "RAAN": (0, 359.9),
-            "arg_perigee": (0, 359.9),
-            "true_anomaly": (-360.0, 360.0),
-        }
+        self.orbital_ranges = ORBITAL_RANGES
 
         self.orbit = None
         self.orbital_parameters = None
@@ -714,7 +707,7 @@ class OrbitDesigner(QWidget):
                     QMessageBox.warning(
                         self,
                         "Input Error",
-                        f"Semi-major axis (a) must be greater than minimal value ({self.ranges['a'][0]:.2f} km)",
+                        f"Semi-major axis (a) must be greater than minimal value ({self.orbital_ranges['a'][0]:.2f} km)",
                     )
                     return None
                 e_widget = self.controls.input_e
@@ -732,7 +725,7 @@ class OrbitDesigner(QWidget):
                         QMessageBox.warning(
                             self,
                             "Input Error",
-                            f"Perigee distance ({perigee_distance:.2f} km) is below Earth's radius ({self.ranges['a'][0]:.2f} km).",
+                            f"Perigee distance ({perigee_distance:.2f} km) is below Earth's radius ({self.orbital_ranges['a'][0]:.2f} km).",
                         )
                         return None
                 except ValueError:
@@ -741,7 +734,7 @@ class OrbitDesigner(QWidget):
                     self.controls.chk_orbital_elements.setChecked(False)
                     return None
 
-            if not self._validate_field(widget, self.ranges[name][0], self.ranges[name][1]):
+            if not self._validate_field(widget, self.orbital_ranges[name][0], self.orbital_ranges[name][1]):
                 return None
 
             values[name] = numeric_value

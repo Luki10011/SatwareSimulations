@@ -167,7 +167,3 @@ class OrbitCharacteristicsTab(QWidget):
         self.ground_track_window = GroundTrackWindow(self.last_eci_positions, self.last_times, self.initial_gmst)
         self.ground_track_window.show()
         
-
-    def _open_orbital_plots(self):
-        if self.last_orbital_elements is None:
-            return
