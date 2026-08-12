@@ -12,6 +12,7 @@ from ui.orbits.orbit_designer import OrbitDesigner
 from ui.main_screen.components.loading_screen import LoadingScreen
 from ui.satellite.satellite_configurator import SatelliteConfigurator
 from utils.constants import ORBITS_DATA
+from utils.ui.ui_utils import apply_dark_title_bar, show_dark_message_box
 
 
 
@@ -30,6 +31,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_stacked_widget)
         
         self.init_screens()
+        apply_dark_title_bar(self)
         self.init_menu_bar()
 
     def load_stylesheet(self, filename):
@@ -51,7 +53,7 @@ class MainWindow(QMainWindow):
         self.welcome_screen = MainScreenWelcome()
         self.welcome_screen.orbit_item.connectClick(self.show_orbit_designer)
         self.welcome_screen.satellite_item.connectClick(self.show_satellite_configurator)
-        self.welcome_screen.experiment_item.connectClick(lambda : print("Experiment item clicked"))
+        self.welcome_screen.experiment_item.connectClick(self.create_new_simulation)
         self.central_stacked_widget.addWidget(self.welcome_screen)
   
         # Index 1: Loading screen
@@ -126,14 +128,26 @@ class MainWindow(QMainWindow):
             return
 
         if self.central_stacked_widget.currentIndex() == 3:
-            reply = QMessageBox.question(self, "Satellite Configurator", "You are returning to the satellite configurator. Any unsaved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = show_dark_message_box(
+                self,
+                "Satellite Configurator",
+                "You are returning to the satellite configurator. Any unsaved changes will be lost.",
+                icon=QMessageBox.Icon.Question,
+                buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
 
             if reply == QMessageBox.StandardButton.Yes:
                 self.satellite_configurator.reset_satellite_configurator()
             else:
                 return
         elif self.central_stacked_widget.currentIndex() == 2:
-            reply = QMessageBox.question(self, "Orbit Designer", "You are switching to satellite configurator functional module. Any unasved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = show_dark_message_box(
+                self,
+                "Orbit Designer",
+                "You are switching to satellite configurator functional module. Any unasved changes will be lost.",
+                icon=QMessageBox.Icon.Question,
+                buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
             if reply == QMessageBox.StandardButton.Yes:
                 self.satellite_configurator.reset_satellite_configurator()
             else:
@@ -162,7 +176,13 @@ class MainWindow(QMainWindow):
     def close_application(self):
         if self._is_switching:
             return
-        reply = QMessageBox.question(self, "Exit Application", "You are exiting the application. Are you sure?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = show_dark_message_box(
+            self,
+            "Exit Application",
+            "You are exiting the application. Are you sure?",
+            icon=QMessageBox.Icon.Question,
+            buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
         if reply == QMessageBox.StandardButton.Yes:
             self.close()
 
@@ -195,7 +215,13 @@ class MainWindow(QMainWindow):
         current_index = self.central_stacked_widget.currentIndex() 
 
         if current_index in [2, 3]:
-            reply = QMessageBox.question(self, "Returning to Welcome Screen", "You are returning to the welcome screen. Any unsaved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = show_dark_message_box(
+                self,
+                "Returning to Welcome Screen",
+                "You are returning to the welcome screen. Any unsaved changes will be lost.",
+                icon=QMessageBox.Icon.Question,
+                buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
             if reply == QMessageBox.StandardButton.Yes:
                 self.orbit_designer_screen.reset_designer()
             else:
@@ -209,14 +235,26 @@ class MainWindow(QMainWindow):
             return
 
         if self.central_stacked_widget.currentIndex() == 2:
-            reply = QMessageBox.question(self, "Orbit Designer", "You are returning to the orbit designer. Any unsaved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = show_dark_message_box(
+                self,
+                "Orbit Designer",
+                "You are returning to the orbit designer. Any unsaved changes will be lost.",
+                icon=QMessageBox.Icon.Question,
+                buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
             if reply == QMessageBox.StandardButton.Yes:
                 self.orbit_designer_screen.reset_designer()
             else:
                 return
 
         if self.central_stacked_widget.currentIndex() == 3:
-            reply = QMessageBox.question(self, "Satellite Configurator", "You are switching to orbit designer functional module. Any unasved changes will be lost.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            reply = show_dark_message_box(
+                self,
+                "Satellite Configurator",
+                "You are switching to orbit designer functional module. Any unasved changes will be lost.",
+                icon=QMessageBox.Icon.Question,
+                buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
             if reply == QMessageBox.StandardButton.Yes:
                 self.orbit_designer_screen.reset_designer()
             else:
@@ -261,7 +299,12 @@ class MainWindow(QMainWindow):
 
                 self._run_safe_transition(heavy_action=action)
             else:
-                QMessageBox.warning(self, "Invalid Parameters", "Please select both an orbit and a satellite configuration to proceed with the simulation.")
+                show_dark_message_box(
+                    self,
+                    "Invalid Parameters",
+                    "Please select both an orbit and a satellite configuration to proceed with the simulation.",
+                    icon=QMessageBox.Icon.Warning
+                )
 
     def load_orbit(self):
         """Opens a file dialog to load orbit data from a JSON file and passes it to the orbit designer screen."""

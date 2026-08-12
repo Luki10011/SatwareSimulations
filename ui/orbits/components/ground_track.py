@@ -5,6 +5,7 @@ import pyqtgraph as pg
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget
 from utils.constants import CONSTANTS
+from utils.ui.ui_utils import apply_dark_title_bar
 
 
 class GroundTrackWindow(QWidget):
@@ -20,6 +21,7 @@ class GroundTrackWindow(QWidget):
         self.setWindowTitle("Satellite Ground Track Analysis")
         self.resize(950, 550)
         self.setMinimumSize(600, 400)
+        apply_dark_title_bar(self)
 
         self.OMEGA_E = CONSTANTS["omega_E"]  # Earth's rotation speed (rad/s)
         self.initial_gmst = (

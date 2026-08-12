@@ -35,6 +35,7 @@ from core.physics.dataclasses.satellite_configuration import (
     validate_satellite_configuration_data,
 )
 import numpy as np
+from utils.ui.ui_utils import show_dark_message_box
 
 
 class SatelliteControls(QWidget):
@@ -240,7 +241,12 @@ class SatelliteControls(QWidget):
         has_dim_error = any(k in errors for k in ("wheel_radius", "wheel_height"))
 
         if has_mass_error or has_dim_error:
-            QMessageBox.warning(self, "Invalid parameters", "Please correct highlighted fields before calculating inertia.")
+            show_dark_message_box(
+                self,
+                "Invalid parameters",
+                "Please correct highlighted fields before calculating inertia.",
+                icon=QMessageBox.Icon.Warning
+            )
             size_errors = {k: v for k, v in errors.items() if k in ("wheel_mass", "wheel_radius", "wheel_height")}
             self.mark_errors(size_errors, replace_all=False)
             return
@@ -362,14 +368,24 @@ class SatelliteControls(QWidget):
 
         # Odśwież widok 3D tylko, gdy masa i wymiary są poprawne
         if has_mass_error or has_dim_error:
-            QMessageBox.warning(self, "Invalid parameters", "Please correct highlighted fields before calculating inertia.")
+            show_dark_message_box(
+                self,
+                "Invalid parameters",
+                "Please correct highlighted fields before calculating inertia.",
+                icon=QMessageBox.Icon.Warning
+            )
             size_errors = {k: v for k, v in errors.items() if k in ("mass", "dimensions", "dim_a", "dim_b", "dim_h")}
             self.mark_errors(size_errors, replace_all=False)
             return
 
         dimensions = self._read_dimensions()
         if dimensions is None:
-            QMessageBox.warning(self, "Invalid parameters", "Dimensions are required and must be valid positive numbers.")
+            show_dark_message_box(
+                self,
+                "Invalid parameters",
+                "Dimensions are required and must be valid positive numbers.",
+                icon=QMessageBox.Icon.Warning
+            )
             return
         a, b, h = dimensions
         mass = self._to_float(self.input_mass.text())

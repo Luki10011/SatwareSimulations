@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QMessageBox, QSizePolicy, 
 from core.physics.dataclasses.satellite_configuration import build_satellite_configuration, serialize_satellite_configuration, validate_satellite_configuration_data
 from ui.satellite.components.satellite_controls import SatelliteControls
 from ui.satellite.components.satellite_scene import SatelliteScene
-
+from utils.ui.ui_utils import show_dark_message_box
 
 class SatelliteConfigurator(QWidget):
 
@@ -84,7 +84,12 @@ class SatelliteConfigurator(QWidget):
         errors = validate_satellite_configuration_data(data)
         if errors:
             self.satellite_controls.mark_errors(errors)
-            QMessageBox.warning(self, "Invalid configuration", "\n".join(errors.values() if isinstance(errors, dict) else errors))
+            show_dark_message_box(
+                self,
+                "Invalid configuration",
+                "\n".join(errors.values() if isinstance(errors, dict) else errors),
+                icon=QMessageBox.Icon.Warning
+            )
             return
 
         file_path, _ = QFileDialog.getSaveFileName(
@@ -100,7 +105,12 @@ class SatelliteConfigurator(QWidget):
         with open(file_path, "w", encoding="utf-8") as handle:
             json.dump(serialize_satellite_configuration(config), handle, indent=2)
 
-        QMessageBox.information(self, "Saved", f"Configuration saved to {file_path}")
+        show_dark_message_box(
+            self,
+            "Saved",
+            f"Configuration saved to {file_path}",
+            icon=QMessageBox.Icon.Information
+        )
 
     def load_configuration(self, file_path: str) -> None:
         
@@ -113,12 +123,22 @@ class SatelliteConfigurator(QWidget):
         errors = validate_satellite_configuration_data(data)
         if errors:
             self.satellite_controls.mark_errors(errors)
-            QMessageBox.warning(self, "Invalid configuration", "\n".join(errors.values() if isinstance(errors, dict) else errors))
+            show_dark_message_box(
+                self,
+                "Invalid configuration",
+                "\n".join(errors.values() if isinstance(errors, dict) else errors),
+                icon=QMessageBox.Icon.Warning
+            )
             return
 
         self.satellite_controls.set_configuration_data(data)
         self._sync_view(data, mark_errors=False)
-        QMessageBox.information(self, "Loaded", f"Configuration loaded from {file_path}")
+        show_dark_message_box(
+            self,
+            "Loaded",
+            f"Configuration loaded from {file_path}",
+            icon=QMessageBox.Icon.Information
+        )
 
     def reset_satellite_configurator(self):
         self.satellite_controls.tab_widget.setCurrentIndex(0)

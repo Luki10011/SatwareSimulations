@@ -30,6 +30,8 @@ from utils.rotations import datetime_to_julian_date, get_initial_gmst
 
 from utils.rotations import get_pqw_to_eci_matrix
 
+from utils.ui.ui_utils import show_dark_message_box
+
 
 class OrbitDesigner(QWidget):
     """Main window for building and visualizing orbital trajectories."""
@@ -67,7 +69,6 @@ class OrbitDesigner(QWidget):
         current_jd = datetime_to_julian_date(now)
         
         self.initial_gmst = get_initial_gmst(current_jd)
-        print(self.initial_gmst)
         self.current_ecef_rotation = self.initial_gmst
     
         self.total_steps_elapsed = 0
@@ -388,21 +389,41 @@ class OrbitDesigner(QWidget):
 
                 orbital_values = self._validate_inputs()
                 if orbital_values is None:
-                    QMessageBox.warning(self, "Invalid file", f"The orbit file is invalid, please check the file's content!")
+                    show_dark_message_box(
+                        self,
+                        "Invalid file",
+                        f"The orbit file is invalid, please check the file's content!",
+                        icon=QMessageBox.Icon.Warning
+                    )
                     self.controls.reset_inputs()
                     return
 
                 file.close()
-                QMessageBox.information(self, "Orbit Loaded", f"The orbit has been successfully loaded from:\n{file_path}")
+                show_dark_message_box(
+                    self,
+                    "Orbit Loaded",
+                    f"The orbit has been successfully loaded from:\n{file_path}",
+                    icon=QMessageBox.Icon.Information
+                )
             self.update_plot()
             return
         except Exception as e:
-            QMessageBox.critical(self, "Loading Error", f"An error occurred while loading the orbit: {str(e)}")
+            show_dark_message_box(
+                self,
+                "Loading Error",
+                f"An error occurred while loading the orbit: {str(e)}",
+                icon=QMessageBox.Icon.Critical
+            )
 
     def _save_orbit_to_file(self) -> None:
         """ Saving the current orbit to a JSON file. """
         if self.orbit is None:
-            QMessageBox.warning(self, "No Orbit", "There is no orbit to save. Please generate an orbit first.")
+            show_dark_message_box(
+                self,
+                "No Orbit",
+                "There is no orbit to save. Please generate an orbit first.",
+                icon=QMessageBox.Icon.Warning
+            )
             return
 
         file_path, _ = QFileDialog.getSaveFileName(
@@ -428,10 +449,20 @@ class OrbitDesigner(QWidget):
             with open(file_path, "w", encoding="utf-8") as file:
                 json.dump(data, file, indent=4, ensure_ascii=False)
 
-            QMessageBox.information(self, "Orbit Saved", f"The orbit has been successfully saved to:\n{file_path}")
+            show_dark_message_box(
+                self,
+                "Orbit Saved",
+                f"The orbit has been successfully saved to:\n{file_path}",
+                icon=QMessageBox.Icon.Information
+            )
             
         except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"An error occurred while saving the orbit: {str(e)}")
+            show_dark_message_box(
+                self,
+                "Save Error",
+                f"An error occurred while saving the orbit: {str(e)}",
+                icon=QMessageBox.Icon.Critical
+            )
 
 
     def toggle_eci_visibility(self) -> None:
@@ -700,14 +731,24 @@ class OrbitDesigner(QWidget):
             if numeric_value == -1:
                 return None
             
+            if not self._validate_field(widget, self.orbital_ranges[name][0], self.orbital_ranges[name][1]):
+                show_dark_message_box(
+                    self,
+                    "Input Error",
+                    f"{label} must be in the range [{self.orbital_ranges[name][0]:.2f}, {self.orbital_ranges[name][1]:.2f}].",
+                    icon=QMessageBox.Icon.Warning
+                )
+                return None
+            
             if name == "a":
                 if numeric_value < CONSTANTS["R"] * 1e-3 + 100:
                     self.controls.chk_orbit_plane.setChecked(False)
                     self.controls.chk_orbital_elements.setChecked(False)
-                    QMessageBox.warning(
+                    show_dark_message_box(
                         self,
                         "Input Error",
                         f"Semi-major axis (a) must be greater than minimal value ({self.orbital_ranges['a'][0]:.2f} km)",
+                        icon=QMessageBox.Icon.Warning
                     )
                     return None
                 e_widget = self.controls.input_e
@@ -716,26 +757,27 @@ class OrbitDesigner(QWidget):
                     if e_value < 0 or e_value >= 1:
                         self.controls.chk_orbit_plane.setChecked(False)
                         self.controls.chk_orbital_elements.setChecked(False)
-                        QMessageBox.warning(self, "Input Error", "Eccentricity (e) must be in the range [0, 1).")
+                        show_dark_message_box(
+                            self,
+                            "Input Error",
+                            "Eccentricity (e) must be in the range [0, 1).",
+                            icon=QMessageBox.Icon.Warning
+                        )
                         return None
                     perigee_distance = numeric_value * (1 - e_value)
                     if perigee_distance < CONSTANTS["R"] * 1e-3:
                         self.controls.chk_orbit_plane.setChecked(False)
                         self.controls.chk_orbital_elements.setChecked(False)
-                        QMessageBox.warning(
+                        show_dark_message_box(
                             self,
                             "Input Error",
                             f"Perigee distance ({perigee_distance:.2f} km) is below Earth's radius ({self.orbital_ranges['a'][0]:.2f} km).",
+                            icon=QMessageBox.Icon.Warning
                         )
                         return None
                 except ValueError:
-                    QMessageBox.warning(self, "Input Error", "Please enter a valid numeric value for Eccentricity (e).")
-                    self.controls.chk_orbit_plane.setChecked(False)
-                    self.controls.chk_orbital_elements.setChecked(False)
-                    return None
+                    continue
 
-            if not self._validate_field(widget, self.orbital_ranges[name][0], self.orbital_ranges[name][1]):
-                return None
 
             values[name] = numeric_value
 
@@ -747,7 +789,12 @@ class OrbitDesigner(QWidget):
             value = float(line_edit.text())
             return value
         except ValueError:
-            QMessageBox.warning(self, "Input Error", f"Please enter a valid numeric value for {parameter}.")
+            show_dark_message_box(
+                self,
+                "Input Error",
+                f"Please enter a valid numeric value for {parameter}.",
+                icon=QMessageBox.Icon.Warning
+            )
             self.controls.chk_orbit_plane.setChecked(False)
             self.controls.chk_orbital_elements.setChecked(False)
             return -1.0

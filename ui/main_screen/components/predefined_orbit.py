@@ -1,10 +1,13 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QTextBrowser, QDialogButtonBox
 from PyQt6.QtCore import Qt
+from utils.ui.ui_utils import apply_dark_title_bar
+
 
 class PredefinedOrbitDialog(QDialog):
     def __init__(self, orbits_data, parent=None):
         super().__init__(parent)
         self.orbits_data = orbits_data
+        apply_dark_title_bar(self)
         self.selected_orbit_name = None
         
         self.setWindowTitle("Select Predefined Orbit")

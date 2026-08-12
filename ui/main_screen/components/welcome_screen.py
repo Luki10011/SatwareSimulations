@@ -202,7 +202,7 @@ class MainScreenWelcome(QWidget):
         )
 
         self.experiment_item = QuickAccessItem(
-            "Create new Experiment",
+            "Create new Simulation",
             "Configure simulation scenarios and analyses."
         )
 

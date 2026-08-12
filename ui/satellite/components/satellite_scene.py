@@ -28,8 +28,29 @@ class SatelliteScene(QWidget):
         self.view = gl.GLViewWidget()
         self.view.setBackgroundColor(QColor("#080d1a"))
         self.view.setCameraPosition(distance=6, elevation=20, azimuth=35)
+        self._set_camera_limits(min_dist=0.2, max_dist=15.0)
         layout.addWidget(self.view)
         self._draw_rgb_axes(length=1.5, width=3.5)
+
+    def _set_camera_limits(self, min_dist: float, max_dist: float):
+            """Set the minimum and maximum camera distance for zooming in/out."""
+            original_wheel_event = self.view.wheelEvent
+    
+            def custom_wheel_event(event):
+                delta = event.angleDelta().y()
+                current_dist = self.view.opts['distance']
+    
+                if delta < 0 and current_dist >= max_dist:
+                    event.accept()  
+                    return
+    
+                if delta > 0 and current_dist <= min_dist:
+                    event.accept()  
+                    return
+    
+                original_wheel_event(event)
+    
+            self.view.wheelEvent = custom_wheel_event
 
 
     def _clear_scene(self) -> None:
