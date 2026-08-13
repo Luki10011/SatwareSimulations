@@ -11,6 +11,7 @@ from ui.main_screen.components.welcome_screen import MainScreenWelcome
 from ui.orbits.orbit_designer import OrbitDesigner  
 from ui.main_screen.components.loading_screen import LoadingScreen
 from ui.satellite.satellite_configurator import SatelliteConfigurator
+from ui.simulation.simulation_view import SimulationView
 from utils.constants import ORBITS_DATA
 from utils.ui.ui_utils import apply_dark_title_bar, show_dark_message_box
 
@@ -69,6 +70,8 @@ class MainWindow(QMainWindow):
         self.central_stacked_widget.addWidget(self.satellite_configurator)
 
         # Index 4: Simulation screen
+        self.simulation_view = SimulationView(orbital_data=None, satellite_data=None)
+        self.central_stacked_widget.addWidget(self.simulation_view)
         
         self.central_stacked_widget.setCurrentIndex(0)
 
@@ -294,7 +297,11 @@ class MainWindow(QMainWindow):
                 selected_satellite = dialog.selected_satellite
 
                 def action():
-                    self.simulation_screen.load_simulation(selected_orbit, selected_satellite)
+                    # set the selected orbit and satellitce data in the simulation view
+                    self.simulation_view.load_simulation(
+                        orbital_data=selected_orbit,
+                        satellite_data=selected_satellite
+                    )
                     self.central_stacked_widget.setCurrentIndex(4)
 
                 self._run_safe_transition(heavy_action=action)

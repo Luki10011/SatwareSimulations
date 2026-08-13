@@ -81,11 +81,14 @@ class OrbitDesigner(QWidget):
         """Create the main window layout and initialize the 3D scene with top tab navigation."""
         layout = QHBoxLayout(self)
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        
 
         left_panel_container = QWidget()
         left_panel_layout = QVBoxLayout(left_panel_container)
         left_panel_layout.setContentsMargins(0, 0, 0, 0)
         left_panel_layout.setSpacing(10)  # Odstęp między zakładkami a zawartością
+        left_panel_container.setMinimumWidth(360)
+        left_panel_container.setMaximumWidth(480)
 
         tab_layout = QHBoxLayout()
         tab_layout.setSpacing(2) 
@@ -776,7 +779,7 @@ class OrbitDesigner(QWidget):
                         )
                         return None
                 except ValueError:
-                    continue
+                    return None
 
 
             values[name] = numeric_value

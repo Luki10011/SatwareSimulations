@@ -63,10 +63,10 @@ class OrbitSceneHelper:
 
 
     @staticmethod
-    def create_earth() -> gl.GLMeshItem:
-        rows = 1000
-        cols = 1000
-        radius = 6371.0
+    def create_earth(rows=1000, cols=1000, radius=6371.0) -> gl.GLMeshItem:
+        rows = rows
+        cols = cols
+        radius = radius
 
         try:
             img = Image.open("assets\\graphics\\earth_surface.jpg")
