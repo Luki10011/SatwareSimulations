@@ -2,7 +2,7 @@ import sys
 import os
 from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QMainWindow, QMessageBox, QWidget, QVBoxLayout, 
                              QLabel, QStackedWidget, QPushButton, QStyle, QProgressBar)
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QAction, QMatrix4x4, QPalette
 import qdarktheme
 from ui.main_screen.components.predefined_orbit import PredefinedOrbitDialog
@@ -124,6 +124,7 @@ class MainWindow(QMainWindow):
         simulation_menu.addAction(create_new_simulation_action)
         create_new_simulation_action.triggered.connect(self.create_new_simulation)
         simulation_menu.addAction(load_simulation_from_file)
+        load_simulation_from_file.triggered.connect(self.load_simulation_from_file)
 
 
     def show_satellite_configurator(self):
@@ -141,6 +142,7 @@ class MainWindow(QMainWindow):
 
             if reply == QMessageBox.StandardButton.Yes:
                 self.satellite_configurator.reset_satellite_configurator()
+                self.satellite_configurator.destroy(True)
             else:
                 return
         elif self.central_stacked_widget.currentIndex() == 2:
@@ -153,6 +155,20 @@ class MainWindow(QMainWindow):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self.satellite_configurator.reset_satellite_configurator()
+                self.orbit_designer_screen.destroy(True)
+            else:
+                return
+        elif self.central_stacked_widget.currentIndex() == 4:
+            reply = show_dark_message_box(
+                self,
+                "Simulation View",
+                "You are switching to satellite configurator functional module. Any unsaved changes will be lost.",
+                icon=QMessageBox.Icon.Question,
+                buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self.satellite_configurator.reset_satellite_configurator()
+                self.simulation_view.destroy(True)
             else:
                 return
         self._run_safe_transition(heavy_action= lambda : self.central_stacked_widget.setCurrentIndex(3))
@@ -164,7 +180,7 @@ class MainWindow(QMainWindow):
 
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Load Satellite Configuration",
+            "Load Satellite Data",
             "",
             "JSON Files (*.json);;All Files (*)"
         )
@@ -173,6 +189,7 @@ class MainWindow(QMainWindow):
             def action():
                 self.satellite_configurator.load_configuration(file_path)
                 self.central_stacked_widget.setCurrentIndex(3)
+                return
 
             self._run_safe_transition(heavy_action=action)
 
@@ -196,9 +213,11 @@ class MainWindow(QMainWindow):
         self._is_switching = True
         
         self.central_stacked_widget.setCurrentIndex(1)
+
+        # QCoreApplication.processEvents()
         
 
-        QTimer.singleShot(150, lambda: self._complete_transition(heavy_action))
+        QTimer.singleShot(1500, lambda: self._complete_transition(heavy_action))
 
     def _complete_transition(self, heavy_action):
         try:
@@ -217,7 +236,7 @@ class MainWindow(QMainWindow):
         
         current_index = self.central_stacked_widget.currentIndex() 
 
-        if current_index in [2, 3]:
+        if current_index in [2, 3, 4]:
             reply = show_dark_message_box(
                 self,
                 "Returning to Welcome Screen",
@@ -247,6 +266,7 @@ class MainWindow(QMainWindow):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self.orbit_designer_screen.reset_designer()
+                self.orbit_designer_screen.destroy(True)
             else:
                 return
 
@@ -260,10 +280,24 @@ class MainWindow(QMainWindow):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self.orbit_designer_screen.reset_designer()
+                self.satellite_configurator.destroy(True)
             else:
                 return
+
+        if self.central_stacked_widget.currentIndex() == 4:
+                    reply = show_dark_message_box(
+                        self,
+                        "Simulation View",
+                        "You are switching to orbit designer functional module. Any unasved changes will be lost.",
+                        icon=QMessageBox.Icon.Question,
+                        buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    )
+                    if reply == QMessageBox.StandardButton.Yes:
+                        self.orbit_designer_screen.reset_designer()
+                        self.simulation_view.destroy()
+                    else:
+                        return
             
-        
         self._run_safe_transition(heavy_action=None)
 
     def load_predefined_orbit(self):
@@ -281,6 +315,7 @@ class MainWindow(QMainWindow):
                 def action():
                     self.orbit_designer_screen.load_predefined_orbit(elements)
                     self.central_stacked_widget.setCurrentIndex(2)
+                    return
 
                 self._run_safe_transition(heavy_action=action)
 
@@ -303,6 +338,7 @@ class MainWindow(QMainWindow):
                         satellite_data=selected_satellite
                     )
                     self.central_stacked_widget.setCurrentIndex(4)
+                    return
 
                 self._run_safe_transition(heavy_action=action)
             else:
@@ -312,6 +348,28 @@ class MainWindow(QMainWindow):
                     "Please select both an orbit and a satellite configuration to proceed with the simulation.",
                     icon=QMessageBox.Icon.Warning
                 )
+
+    def load_simulation_from_file(self):
+        """Loads simulation configuration from file"""
+        if self._is_switching:
+            return
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Simulation Data",
+            "",
+            "JSON Files (*.json);;All Files (*)"
+        )
+
+        if file_path:
+            def action():
+                self.simulation_view.load_simulation_from_file(file_path)
+                self.central_stacked_widget.setCurrentIndex(4)
+                return
+
+            self._run_safe_transition(heavy_action=action)
+
+        
 
     def load_orbit(self):
         """Opens a file dialog to load orbit data from a JSON file and passes it to the orbit designer screen."""
@@ -329,5 +387,6 @@ class MainWindow(QMainWindow):
             def action():
                 self.orbit_designer_screen.load_orbit_from_file(file_path)
                 self.central_stacked_widget.setCurrentIndex(2)
+                return
 
             self._run_safe_transition(heavy_action=action)

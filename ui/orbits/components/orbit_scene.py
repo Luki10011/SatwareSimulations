@@ -63,62 +63,210 @@ class OrbitSceneHelper:
 
 
     @staticmethod
-    def create_earth(rows=1000, cols=1000, radius=6371.0) -> gl.GLMeshItem:
-        rows = rows
-        cols = cols
-        radius = radius
-
+    def create_earth(rows=500, cols=1000, radius=6371.0) -> gl.GLMeshItem:
         try:
+            # ============================================================
+            # 1. Wczytanie tekstury
+            # ============================================================
+
             img = Image.open("assets\\graphics\\earth_surface.jpg")
             img = img.convert("RGBA")
             img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
 
-            texture_data = np.array(img)
+            texture_data = np.asarray(img, dtype=np.uint8)
             img_h, img_w, _ = texture_data.shape
 
-            verts = []
-            faces = []
-            v_colors = []
+            # ============================================================
+            # 2. Siatka współrzędnych
+            # ============================================================
 
-            for i in range(rows + 1):
-                lat_frac = i / rows
-                lat = (np.pi * lat_frac) - (np.pi / 2.0)
-                y_pixel = int(lat_frac * (img_h - 1))
+            # Szerokość geograficzna:
+            # -PI/2 ... +PI/2
+            lat = np.linspace(
+                -np.pi / 2.0,
+                np.pi / 2.0,
+                rows + 1,
+                dtype=np.float32
+            )
 
-                for j in range(cols + 1):
-                    lon_frac = j / cols
-                    lon = 2.0 * np.pi * lon_frac
-                    u_texture = (lon_frac + 0.5) % 1.0
-                    x_pixel = int(u_texture * (img_w - 1))
+            # Długość geograficzna:
+            # 0 ... 2PI
+            lon = np.linspace(
+                0.0,
+                2.0 * np.pi,
+                cols + 1,
+                dtype=np.float32
+            )
 
-                    x = radius * np.cos(lat) * np.cos(lon)
-                    y = radius * np.cos(lat) * np.sin(lon)
-                    z = radius * np.sin(lat)
-                    verts.append([x, y, z])
+            lat_grid, lon_grid = np.meshgrid(
+                lat,
+                lon,
+                indexing="ij"
+            )
 
-                    pixel_color = texture_data[y_pixel, x_pixel] / 255.0
-                    v_colors.append(pixel_color)
+            cos_lat = np.cos(lat_grid)
 
-            for i in range(rows):
-                for j in range(cols):
-                    p1 = i * (cols + 1) + j
-                    p2 = p1 + 1
-                    p3 = (i + 1) * (cols + 1) + j
-                    p4 = p3 + 1
+            # ============================================================
+            # 3. Wierzchołki
+            # ============================================================
 
-                    faces.append([p1, p2, p4])
-                    faces.append([p1, p4, p3])
+            x = radius * cos_lat * np.cos(lon_grid)
+            y = radius * cos_lat * np.sin(lon_grid)
+            z = radius * np.sin(lat_grid)
 
-            verts = np.array(verts, dtype=np.float32)
-            faces = np.array(faces, dtype=np.uint32)
-            v_colors = np.array(v_colors, dtype=np.float32)
+            verts = np.stack(
+                (x, y, z),
+                axis=-1
+            ).reshape(-1, 3)
 
-            mesh_data = gl.MeshData(vertexes=verts, faces=faces, vertexColors=v_colors)
-            return gl.GLMeshItem(meshdata=mesh_data, smooth=True, glOptions='opaque')
+            verts = np.ascontiguousarray(
+                verts,
+                dtype=np.float32
+            )
+
+            # ============================================================
+            # 4. Normalne
+            #
+            # Dla kuli:
+            #
+            # normal = position / radius
+            #
+            # Nie musimy pozwalać MeshData liczyć ich iteracyjnie.
+            # ============================================================
+
+            normals = verts / np.float32(radius)
+
+            normals = np.ascontiguousarray(
+                normals,
+                dtype=np.float32
+            )
+
+            # ============================================================
+            # 5. Kolory z tekstury
+            #
+            # Zamiast float32 / 255:
+            # zostawiamy uint8.
+            #
+            # PyQtGraph/OpenGL potrafi użyć ich bezpośrednio jako
+            # znormalizowanych wartości kolorów.
+            # ============================================================
+
+            y_pixels = np.linspace(
+                0,
+                img_h - 1,
+                rows + 1,
+                dtype=np.int32
+            )
+
+            # Odpowiada Twojemu:
+            #
+            # u_texture = (lon_frac + 0.5) % 1.0
+            #
+            lon_frac = np.linspace(
+                0.0,
+                1.0,
+                cols + 1,
+                dtype=np.float32
+            )
+
+            u_texture = (lon_frac + 0.5) % 1.0
+
+            x_pixels = (
+                u_texture * (img_w - 1)
+            ).astype(np.int32)
+
+            v_colors = texture_data[
+                y_pixels[:, None],
+                x_pixels[None, :]
+            ]
+
+            v_colors = np.ascontiguousarray(
+                v_colors.reshape(-1, 4),
+                dtype=np.uint8
+            )
+
+            # ============================================================
+            # 6. Indeksy trójkątów
+            # ============================================================
+
+            vertex_cols = cols + 1
+
+            i = np.arange(
+                rows,
+                dtype=np.uint32
+            )[:, None]
+
+            j = np.arange(
+                cols,
+                dtype=np.uint32
+            )[None, :]
+
+            p1 = i * vertex_cols + j
+            p2 = p1 + 1
+            p3 = (i + 1) * vertex_cols + j
+            p4 = p3 + 1
+
+            # shape:
+            # (rows, cols, 2, 3)
+            #
+            # Trójkąty:
+            #
+            # p1 p2 p4
+            # p1 p4 p3
+
+            faces = np.stack(
+                (
+                    np.stack((p1, p2, p4), axis=-1),
+                    np.stack((p1, p4, p3), axis=-1)
+                ),
+                axis=2
+            )
+
+            faces = faces.reshape(-1, 3)
+
+            faces = np.ascontiguousarray(
+                faces,
+                dtype=np.uint32
+            )
+
+            # ============================================================
+            # 7. MeshData
+            # ============================================================
+
+            mesh_data = gl.MeshData(
+                vertexes=verts,
+                faces=faces,
+                vertexColors=v_colors
+            )
+
+            # ============================================================
+            # 8. GLMeshItem
+            # ============================================================
+
+            return gl.GLMeshItem(
+                meshdata=mesh_data,
+                smooth=True,
+                computeNormals=False,
+                glOptions="opaque"
+            )
+
         except FileNotFoundError:
-            print("Texture file not found; falling back to a simple Earth mesh.")
-            mesh_data = gl.MeshData.sphere(rows=rows, cols=cols, radius=radius)
-            return gl.GLMeshItem(meshdata=mesh_data, smooth=True, color=(0.2, 0.4, 0.8, 1.0))
+            print(
+                "Texture file not found; "
+                "falling back to a simple Earth mesh."
+            )
+
+            mesh_data = gl.MeshData.sphere(
+                rows=rows,
+                cols=cols,
+                radius=radius
+            )
+
+            return gl.GLMeshItem(
+                meshdata=mesh_data,
+                smooth=True,
+                color=(0.2, 0.4, 0.8, 1.0)
+            )
 
     @staticmethod
     def create_angle_arc(vector1, vector2, radius=3000.0, num_segments=500, annotation=None, 

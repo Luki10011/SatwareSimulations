@@ -141,7 +141,7 @@ class OrbitDesigner(QWidget):
         self.grid.setVisible(False)
         self.view.addItem(self.grid)
 
-        self.earth = OrbitSceneHelper.create_earth()
+        self.earth = OrbitSceneHelper.create_earth(rows=300, cols=600)
         self.view.addItem(self.earth)
 
         self.eci_vectors = OrbitSceneHelper.create_eci_vectors()
@@ -376,13 +376,13 @@ class OrbitDesigner(QWidget):
         self.update_plot()
 
 
-    def load_orbit_from_file(self, file_path : str) -> None:
-        """ Loads orbit data from a JSON file and populates the input fields."""
+    def load_orbit_from_file(self, file_path: str) -> None:
+        """Loads orbit data from a JSON file and populates the input fields."""
         self.reset_designer()
+        
         try:
             with open(file_path, "r", encoding="utf-8") as file:
                 data = json.load(file)
-
                 self.controls.input_a.setText(str(data["semi_major_axis"]))
                 self.controls.input_arg_perigee.setText(str(data["arg_perigee"]))
                 self.controls.input_e.setText(str(data["eccentricity"]))
@@ -390,33 +390,16 @@ class OrbitDesigner(QWidget):
                 self.controls.input_RAAN.setText(str(data["raan"]))
                 self.controls.input_true_anomaly.setText(str(data["true_anomaly"]))
 
-                orbital_values = self._validate_inputs()
-                if orbital_values is None:
-                    show_dark_message_box(
-                        self,
-                        "Invalid file",
-                        f"The orbit file is invalid, please check the file's content!",
-                        icon=QMessageBox.Icon.Warning
-                    )
-                    self.controls.reset_inputs()
-                    return
-
-                file.close()
-                show_dark_message_box(
-                    self,
-                    "Orbit Loaded",
-                    f"The orbit has been successfully loaded from:\n{file_path}",
-                    icon=QMessageBox.Icon.Information
-                )
+            # Rysowanie orbity (update_plot sama zajmie się walidacją)
             self.update_plot()
-            return
+
         except Exception as e:
             show_dark_message_box(
                 self,
                 "Loading Error",
                 f"An error occurred while loading the orbit: {str(e)}",
                 icon=QMessageBox.Icon.Critical
-            )
+        )
 
     def _save_orbit_to_file(self) -> None:
         """ Saving the current orbit to a JSON file. """

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QSignalBlocker, Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QMessageBox, QSizePolicy, QSplitter, QWidget
 
 from core.physics.dataclasses.satellite_configuration import build_satellite_configuration, serialize_satellite_configuration, validate_satellite_configuration_data
@@ -113,12 +113,20 @@ class SatelliteConfigurator(QWidget):
         )
 
     def load_configuration(self, file_path: str) -> None:
-        
         if not file_path:
             return
 
-        with open(file_path, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
+        try:
+            with open(file_path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except (OSError, ValueError, TypeError) as e:
+            show_dark_message_box(
+                self,
+                "Error Reading File",
+                f"Failed to read file: {str(e)}",
+                icon=QMessageBox.Icon.Critical
+            )
+            return
 
         errors = validate_satellite_configuration_data(data)
         if errors:
@@ -131,14 +139,16 @@ class SatelliteConfigurator(QWidget):
             )
             return
 
-        self.satellite_controls.set_configuration_data(data)
+        # 1. Zablokowanie sygnałów w panelu kontrolek na czas aplikacji danych
+        with QSignalBlocker(self.satellite_controls):
+            self.satellite_controls.set_configuration_data(data)
+
+        # 2. Jednorazowa synchronizacja widoku/sceny 3D po wstawieniu pełnego kompletu danych
         self._sync_view(data, mark_errors=False)
-        show_dark_message_box(
-            self,
-            "Loaded",
-            f"Configuration loaded from {file_path}",
-            icon=QMessageBox.Icon.Information
-        )
+
+        # 3. Informacja dla użytkownika na pasku statusu zamiast przerywania pętli zdarzeń okienkiem modalnym
+        if hasattr(self, 'statusBar') and self.statusBar():
+            self.statusBar().showMessage(f"Configuration loaded successfully from {file_path}", 3000)
 
     def reset_satellite_configurator(self):
         self.satellite_controls.tab_widget.setCurrentIndex(0)

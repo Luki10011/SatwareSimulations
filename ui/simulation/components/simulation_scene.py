@@ -22,10 +22,10 @@ class SimulationScene(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         
         self.view = gl.GLViewWidget()
-        self.earth = OrbitSceneHelper.create_earth(rows=800, cols=800, radius=6.371)
+        self.earth = OrbitSceneHelper.create_earth(rows=300, cols=600)
         
         self.view.addItem(self.earth)
-        self.view.setCameraPosition(distance=20, elevation=30, azimuth=30)
+        self.view.setCameraPosition(distance=15000, elevation=30, azimuth=30)
         self.view.setCameraParams()
         self.view.opts["glOptions"] = "opaque"
 
