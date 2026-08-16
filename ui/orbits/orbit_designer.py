@@ -141,7 +141,7 @@ class OrbitDesigner(QWidget):
         self.grid.setVisible(False)
         self.view.addItem(self.grid)
 
-        self.earth = OrbitSceneHelper.create_earth(rows=300, cols=600)
+        self.earth = OrbitSceneHelper.create_earth(rows=2000, cols=2000)
         self.view.addItem(self.earth)
 
         self.eci_vectors = OrbitSceneHelper.create_eci_vectors()

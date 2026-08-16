@@ -217,7 +217,7 @@ class MainWindow(QMainWindow):
         # QCoreApplication.processEvents()
         
 
-        QTimer.singleShot(1500, lambda: self._complete_transition(heavy_action))
+        QTimer.singleShot(500, lambda: self._complete_transition(heavy_action))
 
     def _complete_transition(self, heavy_action):
         try:
@@ -362,14 +362,17 @@ class MainWindow(QMainWindow):
         )
 
         if file_path:
+            prev_index = self.central_stacked_widget.currentIndex()
+            
             def action():
-                self.simulation_view.load_simulation_from_file(file_path)
-                self.central_stacked_widget.setCurrentIndex(4)
-                return
+                try:
+                    self.simulation_view.load_simulation_from_file(file_path)
+                    self.central_stacked_widget.setCurrentIndex(4)
+                except ValueError:
+                    self.central_stacked_widget.setCurrentIndex(prev_index)
 
             self._run_safe_transition(heavy_action=action)
 
-        
 
     def load_orbit(self):
         """Opens a file dialog to load orbit data from a JSON file and passes it to the orbit designer screen."""

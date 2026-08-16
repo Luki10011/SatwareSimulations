@@ -1,4 +1,5 @@
 
+import datetime
 import json
 
 from PyQt6.QtWidgets import QHBoxLayout, QMessageBox, QSizePolicy, QWidget, QSplitter
@@ -8,6 +9,7 @@ from core.physics.dataclasses.orbital_data import OrbitalElements
 from core.physics.dataclasses.satellite_configuration import SatelliteConfiguration
 from ui.simulation.components.simulation_controlls import SimulationControls
 from ui.simulation.components.simulation_scene import SimulationScene
+from utils.rotations import datetime_to_julian_date, get_initial_gmst
 from utils.ui.ui_utils import show_dark_message_box
 
 
@@ -22,24 +24,44 @@ class SimulationView(QWidget):
         self.setup_view()
 
     def load_simulation(self, orbital_data : OrbitalElements, satellite_data : SatelliteConfiguration):
+        now = datetime.datetime.now(datetime.timezone.utc)
+        current_jd = datetime_to_julian_date(now)
+        
+        self.initial_gmst = get_initial_gmst(current_jd)
+        self.current_ecef_rotation = self.initial_gmst
         self.orbital_data  = orbital_data
         self.satellite_data = satellite_data
         print("Simulation data successfully loaded into SimulationView.")
 
+        self.scene_panel_container._clear_satellite()
+        
         self.controls_panel_container.update_data(
             orbital_data=orbital_data,
             satellite_data=satellite_data
         )
 
+        self.scene_panel_container._ensure_ECEF_orientation(self.current_ecef_rotation)
+
     def reset(self):
         self.controls_panel_container.reset()
+        self.scene_panel_container._clear_satellite()
 
     def load_simulation_from_file(self, file_path : str) -> None:
         """Load a saved SimulationConfiguration JSON back into the editor."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        current_jd = datetime_to_julian_date(now)
+        
+        self.initial_gmst = get_initial_gmst(current_jd)
+        self.current_ecef_rotation = self.initial_gmst
         self.reset()
         try:
             with open(file_path, "r", encoding="utf-8") as handle:
                 payload = json.load(handle)
+                orbital_data = payload.get("orbital_data", {})
+                mechnical_data = payload.get("satellite_configuration", {})
+                if not orbital_data or not mechnical_data:
+                    raise ValueError("Missing required simulation data")
+                
         except (OSError, ValueError, TypeError):
             show_dark_message_box(
                 self,
@@ -47,9 +69,10 @@ class SimulationView(QWidget):
                 "The selected file could not be read as a simulation configuration.",
                 icon=QMessageBox.Icon.Warning,
             )
-            return
-
+            raise ValueError("Invalid configuration")
+        
         self.controls_panel_container.load_from_file(payload)
+        self.scene_panel_container._ensure_ECEF_orientation(self.current_ecef_rotation)
 
     def setup_view(self):
         main_layout = QHBoxLayout(self)
@@ -67,8 +90,13 @@ class SimulationView(QWidget):
             QSizePolicy.Policy.Fixed,
             QSizePolicy.Policy.Expanding,
         )
+
+        self.controls_panel_container.satellite_state_changed.connect(
+            self._on_satellite_state_changed
+        )
         
         self.scene_panel_container = SimulationScene()
+        
 
         splitter.addWidget(self.controls_panel_container)
         splitter.addWidget(self.scene_panel_container)
@@ -76,3 +104,15 @@ class SimulationView(QWidget):
         splitter.setStretchFactor(1, 2)
 
         main_layout.addWidget(splitter)
+
+    def _on_satellite_state_changed(
+        self, dimensions_m: tuple[float, float, float], position_km: tuple[float, float, float], euler_deg: tuple[float, float, float]
+    ) -> None:
+        if not self.scene_panel_container.satellite_items:
+            self.scene_panel_container.create_satellite(dimensions_m)
+
+        self.scene_panel_container.update_satellite_state(
+            position_km=position_km,
+            euler_deg=euler_deg,
+            track_camera=True
+        )

@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QSizePolicy,
     QTabWidget, QWidget, QVBoxLayout, QFrame
 )
-from PyQt6.QtCore import QLocale, QSignalBlocker, Qt
+from PyQt6.QtCore import QCoreApplication, QLocale, QSignalBlocker, Qt, pyqtSignal
 from PyQt6.QtGui import QDoubleValidator
 
 from core.physics.dataclasses.simulation_data import (
@@ -24,6 +24,8 @@ from core.physics.dataclasses.simulation_data import (
 
 from core.physics.dataclasses.orbital_data import OrbitalElements
 from core.physics.dataclasses.satellite_configuration import SatelliteConfiguration
+from ui.simulation.components.simualtion_plots import SimulationPlotsPanel
+from ui.simulation.components.simulation_control_panel import SimulationControlPanel
 from utils.constants import CONSTANTS
 from utils.rotations import rotate_pqw_to_eci
 from utils.ui.ui_utils import show_dark_message_box
@@ -33,8 +35,12 @@ from utils.transformations import (
 )
 
 class SimulationControls(QWidget):
+
+    satellite_state_changed = pyqtSignal(list, list, list)
+
     def __init__(self, orbital_data: OrbitalElements, satellite_data: SatelliteConfiguration, parent=None):
         super().__init__(parent)
+
         self.orbital_data = orbital_data
         self.satellite_data = satellite_data
         self.current_configuration = None
@@ -44,8 +50,10 @@ class SimulationControls(QWidget):
         self.setup_view()
         
         self._update_calculated_state()
+        self.emit_current_satellite_state()
 
     def update_data(self, orbital_data: OrbitalElements, satellite_data: SatelliteConfiguration):
+        self.reset()
         self.clear_errors()
         self.orbital_data = orbital_data
         self.satellite_data = satellite_data
@@ -55,6 +63,7 @@ class SimulationControls(QWidget):
             
         self._update_calculated_state()
         self._sync_error_state(mark_errors=False)
+        self.emit_current_satellite_state()
 
     def setup_view(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -66,16 +75,21 @@ class SimulationControls(QWidget):
         self.tab_widget.setObjectName("simulationTabWidget")
         main_layout.addWidget(self.tab_widget)
 
+        # Index 0: Initial Conditions
         self._initial_conditions_tab = QWidget(self)
         self._initial_conditions_tab.setObjectName("initial_conditions") 
 
-        self._plots_tab = QWidget(self)
+        # Index 1: Control Panel
+        self.control_panel = SimulationControlPanel(self)
+
+        # Index 2: Simulation Plots
+        self._plots_tab = SimulationPlotsPanel()
         self._plots_tab.setObjectName("plots")
 
         self._build_initial_conditions_tab()
-        self._build_plots_tab()
 
         self.tab_widget.addTab(self._initial_conditions_tab, "Initial Conditions")
+        self.tab_widget.addTab(self.control_panel, "Control Panel")
         self.tab_widget.addTab(self._plots_tab, "Simulation Plots")
 
     def _build_initial_conditions_tab(self) -> None:
@@ -175,13 +189,63 @@ class SimulationControls(QWidget):
         initial_conditions_layout.addLayout(form_layout)
         initial_conditions_layout.addLayout(button_row)
 
-    def _start_simulation(self):
+        
+
+    def _start_simulation(self) -> None:
+
+        config = self.save_configuration()
+        if config is None:
+            return
+
+        # 1. Najpierw przełączamy zakładkę, aby widżet OpenGL został wyrenderowany na ekranie
         self.tab_widget.setTabEnabled(1, True)
+        self.tab_widget.setTabEnabled(2, True)
         self.tab_widget.setCurrentIndex(1)
         self.tab_widget.setTabEnabled(0, False)
 
+        # 2. Wymuszenie przetworzenia zdarzeń widoku przez Qt (inicjalizacja geometrii OpenGL)
+        QCoreApplication.processEvents()
+
+        # 3. Generowanie satelity i ustawienie kamery
+        self.emit_current_satellite_state()
+
+    def get_satellite_state(self, config: SimulationConfiguration | None = None) -> Tuple[List[float], List[float], List[float]]:
+        mech = getattr(self.satellite_data, "mechanical", None)
+
+        if mech is not None:
+            dimensions_m = (
+                getattr(mech, "a", 1.0),
+                getattr(mech, "b", 1.0),
+                getattr(mech, "h", 1.0),
+            )
+        else:
+            dimensions_m = (1.0, 1.0, 1.0)
+        
+        if config is not None and getattr(config, "initial_position", None) is not None:
+            pos_km = list(config.initial_position)
+        else:
+            pos_km = [
+                self._parse_field_number(self.calculated_position[0]) or 0.0,
+                self._parse_field_number(self.calculated_position[1]) or 0.0,
+                self._parse_field_number(self.calculated_position[2]) or 0.0,
+            ]
+
+        euler_deg = [
+            self._parse_field_number(self.input_euler_angles[0]) or 0.0,
+            self._parse_field_number(self.input_euler_angles[1]) or 0.0,
+            self._parse_field_number(self.input_euler_angles[2]) or 0.0,
+        ]   
+
+        return dimensions_m, pos_km, euler_deg
+
     def _build_plots_tab(self) -> None:
         pass
+
+    def emit_current_satellite_state(self) -> None:
+        """Emituje aktualny stan satelity do widoku 3D."""
+        base_config = self.save_configuration()
+        dimensions_m, pos_km, euler_deg = self.get_satellite_state(base_config)
+        self.satellite_state_changed.emit(dimensions_m, pos_km, euler_deg)
 
     def _create_separator(self) -> QFrame:
         line = QFrame()
@@ -302,7 +366,11 @@ class SimulationControls(QWidget):
             self._reset_widget_style(sender)
 
         self.btn_start_simulation.setEnabled(len(all_errors) == 0)
+        self.btn_save.setEnabled(len(all_errors) == 0)
         self._update_calculated_state()
+
+        self.emit_current_satellite_state()
+        
 
     def _get_error_keys_for_widget(self, widget: QWidget) -> List[str]:
         if widget == self.input_true_anomaly:
@@ -429,9 +497,11 @@ class SimulationControls(QWidget):
         if errors:
             self.mark_errors(errors, replace_all=replace_all, mark_errors=mark_errors)
             self.btn_start_simulation.setEnabled(False)
+            self.btn_save.setEnabled(False)
         else:
             self.clear_errors()
             self.btn_start_simulation.setEnabled(True)
+            self.btn_save.setEnabled(True)
 
     def _jsonify_for_storage(self, value: Any) -> Any:
         if is_dataclass(value):
@@ -551,14 +621,14 @@ class SimulationControls(QWidget):
         self.reset()
     
         orbital_data = payload.get("orbital_data", {})
-        if not isinstance(orbital_data, dict):
+        if not isinstance(orbital_data, dict) or not orbital_data:
             show_dark_message_box(
                 self,
                 "Load failed",
                 "The JSON does not contain a valid orbital_data section.",
                 icon=QMessageBox.Icon.Warning,
             )
-            return
+            raise ValueError
 
         try:
             raw_true_anomaly = float(orbital_data.get("true_anomaly", 0.0))
@@ -617,9 +687,11 @@ class SimulationControls(QWidget):
 
         self._sync_error_state(mark_errors=False)
         self._update_calculated_state()
+        self.emit_current_satellite_state()
 
     def reset(self) -> None:
         """Reset all input fields and simulation tabs to default state without triggering validation errors."""
+        self.tab_widget.setTabEnabled(2, False)
         self.tab_widget.setTabEnabled(1, False)
         self.tab_widget.setTabEnabled(0, True)
         self.tab_widget.setCurrentIndex(0)
@@ -646,3 +718,4 @@ class SimulationControls(QWidget):
         self.clear_errors()
         self._update_calculated_state()
         self.btn_start_simulation.setEnabled(False)
+        self.btn_save.setEnabled(False)

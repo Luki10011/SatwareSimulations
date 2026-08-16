@@ -704,3 +704,79 @@ QGroupBox::title {
     font-size: 15pt; 
     padding: 0 5px;
 }
+
+/* ===================================================================
+   SIMULATION PLOTS PANEL & CARDS
+   =================================================================== */
+
+/* Tło panelu przewijania i kontenera kafelków */
+QScrollArea#plotsScrollArea,
+QWidget#plotsScrollContent {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea#plotsScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
+/* Pojedyncza karta/kafelek wykresu */
+QWidget#plotCard {
+    background-color: #1e1e1e;
+    border: 1px solid #333333;
+    border-radius: 6px;
+}
+
+/* Etykiety osi (X:, Y:) w nagłówku kafelka */
+QWidget#plotCard QLabel {
+    color: #b0bec5;
+    font-size: 11px;
+    font-weight: bold;
+    background: transparent;
+}
+
+/* Pola wyboru ComboBox w kafelku */
+QWidget#plotCard QComboBox {
+    background-color: #2a2a2a;
+    color: #ffffff;
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 11px;
+}
+
+QWidget#plotCard QComboBox:hover {
+    background-color: #333333;
+    border-color: #555555;
+}
+
+QWidget#plotCard QComboBox QAbstractItemView {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    selection-background-color: #007acc;
+    border: 1px solid #3c3c3c;
+}
+
+/* Przyciski Pop-out oraz Remove */
+QWidget#plotCard QPushButton {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+QWidget#plotCard QPushButton:hover {
+    background-color: #383838;
+    color: #ffffff;
+}
+
+QWidget#plotCard QPushButton#btnRemovePlot {
+    color: #ff5252;
+    border-color: #5a2525;
+}
+
+QWidget#plotCard QPushButton#btnRemovePlot:hover {
+    background-color: #411d1d;
+}
