@@ -6,12 +6,13 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 
 from PyQt6.QtWidgets import (
-    QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QSizePolicy,
+    QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QSizePolicy,
     QTabWidget, QWidget, QVBoxLayout, QFrame
 )
 from PyQt6.QtCore import QCoreApplication, QLocale, QSignalBlocker, Qt, pyqtSignal
 from PyQt6.QtGui import QDoubleValidator
 
+from core.physics.dataclasses.satellite_state import SatelliteState
 from core.physics.dataclasses.simulation_data import (
     TRUE_ANOMALY_MIN,
     TRUE_ANOMALY_MAX,
@@ -21,9 +22,10 @@ from core.physics.dataclasses.simulation_data import (
     ANGULAR_VELOCITY_MAX,
     SimulationConfiguration,
 )
+from core.physics.solver.simulation_engine import SimulationEngine
 
 from core.physics.dataclasses.orbital_data import OrbitalElements
-from core.physics.dataclasses.satellite_configuration import SatelliteConfiguration
+from core.physics.dataclasses.satellite_configuration import SatelliteConfiguration, deserialize_satellite_configuration
 from ui.simulation.components.simualtion_plots import SimulationPlotsPanel
 from ui.simulation.components.simulation_control_panel import SimulationControlPanel
 from utils.constants import CONSTANTS
@@ -38,13 +40,14 @@ class SimulationControls(QWidget):
 
     satellite_state_changed = pyqtSignal(list, list, list)
 
-    def __init__(self, orbital_data: OrbitalElements, satellite_data: SatelliteConfiguration, parent=None):
+    def __init__(self, orbital_data: OrbitalElements, satellite_data: SatelliteConfiguration, dt :float = 0.1, parent=None):
         super().__init__(parent)
 
-        self.orbital_data = orbital_data
-        self.satellite_data = satellite_data
+        self.orbital_data : OrbitalElements = orbital_data
+        self.satellite_data : SatelliteConfiguration = deserialize_satellite_configuration(satellite_data) if satellite_data is not None else None
         self.current_configuration = None
         self.silent_update = False
+        self.step_val = dt
         
         self.us_locale = QLocale(QLocale.Language.English, QLocale.Country.UnitedStates)
         self.setup_view()
@@ -81,6 +84,8 @@ class SimulationControls(QWidget):
 
         # Index 1: Control Panel
         self.control_panel = SimulationControlPanel(self)
+
+        self.control_panel.state_updated.connect(self._on_simulation_step)
 
         # Index 2: Simulation Plots
         self._plots_tab = SimulationPlotsPanel()
@@ -159,6 +164,24 @@ class SimulationControls(QWidget):
         form_layout.addRow("Initial Angular Velocity [deg/s]:", omega_container)
         form_layout.addRow(self._create_separator())
 
+        self.combo_step_size = QComboBox()
+        self.step_options = {
+            "0.001 s (1 ms)": 0.001,
+            "0.005 s (5 ms)": 0.005,
+            "0.010 s (10 ms)": 0.010,
+            "0.050 s (50 ms)": 0.050,
+            "0.100 s (100 ms)": 0.100,
+            "0.500 s (500 ms)": 0.500,
+            "1.000 s (1 s)": 1.000,
+        }
+        self.combo_step_size.addItems(list(self.step_options.keys()))
+        initial_text = self._get_step_text_from_value(self.step_val)
+        self.combo_step_size.setCurrentText(initial_text)
+        self.combo_step_size.currentTextChanged.connect(self._on_step_changed)
+
+
+        form_layout.addRow("Integration Step (Δt):", self.combo_step_size)
+
         note_label = QLabel("Note:")
         note_label.setStyleSheet("color: #ffffff; font-size: 15px; margin-top: 5px; font-weight: bold")
 
@@ -189,40 +212,116 @@ class SimulationControls(QWidget):
         initial_conditions_layout.addLayout(form_layout)
         initial_conditions_layout.addLayout(button_row)
 
-        
+    def _on_step_changed(self, text: str) -> None:
+        self.step_val = self.step_options.get(text, 0.010)
+
+    def _on_simulation_step(self, satellite_state : SatelliteState):
+        state = satellite_state.to_vector()
+        pos_km = state[0:3] / 1000
+        v_kms = state[3:6] / 1000
+        quat_orientation = state[6:10]
+        angular_vel =  state[10:13]
+
+        self.satellite_state_changed.emit([], pos_km, quaternion_to_euler(quat_orientation))
+
+        # Akutalizacja wykresów
+        # if self.control_panel.engine is not None:
+        #     history_data = self.control_panel.engine.history
+        #     self._plots_tab.update_telemetry(history_data)
 
     def _start_simulation(self) -> None:
-
         config = self.save_configuration()
         if config is None:
             return
 
-        # 1. Najpierw przełączamy zakładkę, aby widżet OpenGL został wyrenderowany na ekranie
         self.tab_widget.setTabEnabled(1, True)
         self.tab_widget.setTabEnabled(2, True)
         self.tab_widget.setCurrentIndex(1)
         self.tab_widget.setTabEnabled(0, False)
 
-        # 2. Wymuszenie przetworzenia zdarzeń widoku przez Qt (inicjalizacja geometrii OpenGL)
         QCoreApplication.processEvents()
 
-        # 3. Generowanie satelity i ustawienie kamery
+        # 1. Konwersja dict -> SatelliteConfiguration (jeśli dane pochodzą z pliku JSON)
+        sate_config = getattr(config, "satellite_configuration", None)
+        if isinstance(sate_config, dict):
+            sate_config = deserialize_satellite_configuration(sate_config)
+
+        print(sate_config.mechanical.I)
+        # 2. Bezpieczne pobranie macierzy bezwładności
+        if sate_config and hasattr(sate_config, "mechanical"):
+            I_matrix = np.asarray(sate_config.mechanical.I, dtype=np.float64)
+        else:
+            I_matrix = np.eye(3, dtype=np.float64)
+
+        # 3. Przeliczenie jednostek na SI dla solvera RK4
+        pos_m = config.initial_position * 1000.0
+        vel_ms = config.initial_velocities * 1000.0
+        omega_rads = np.radians(config.initial_angular_velocities)
+
+        # 4. Pobranie kroku czasowego z konfiguracji lub stanu klasy
+        dt_val = getattr(config, "dt", self.step_val)
+
+        self.control_panel.engine = SimulationEngine(
+            initial_state=SatelliteState(
+                p=pos_m,
+                v=vel_ms,
+                q=config.initial_quat_orientation,
+                omega=omega_rads,
+            ),
+            I_matrix=I_matrix,
+            dt=dt_val,
+        )
+
+        # --- Print informacji o uruchomionym eksperymencie ---
+        print("\n" + "=" * 65)
+        print("               SIMULATION EXPERIMENT INITIALIZED               ")
+        print("=" * 65)
+        print(f" [Time Settings] Integration Step (dt) : {self.step_val:.4f} s")
+        print("-" * 65)
+        print(" [User Inputs]")
+        print(f"  • Position (r)          : {config.initial_position} [km]")
+        print(f"  • Velocity (v)          : {config.initial_velocities} [km/s]")
+        print(f"  • Angular Velocity (ω)  : {config.initial_angular_velocities} [deg/s]")
+        print(f"  • Quaternion (q)        : {config.initial_quat_orientation}")
+        print("-" * 65)
+        print(" [Internal Physics State (SI Units)]")
+        print(f"  • Position (r_SI)       : {pos_m} [m]")
+        print(f"  • Velocity (v_SI)       : {vel_ms} [m/s]")
+        print(f"  • Angular Velocity (ω)  : {omega_rads} [rad/s]")
+        print("-" * 65)
+        print(" [Inertia Tensor Matrix (I)]")
+        for row in I_matrix:
+            print(f"   | {row[0]:12.6f} {row[1]:12.6f} {row[2]:12.6f} |")
+        print("=" * 65 + "\n")
+
         self.emit_current_satellite_state()
 
-    def get_satellite_state(self, config: SimulationConfiguration | None = None) -> Tuple[List[float], List[float], List[float]]:
-        mech = getattr(self.satellite_data, "mechanical", None)
+    def _get_step_text_from_value(self, dt: float) -> str:
+        """Zwraca etykietę QComboBox odpowiadającą wartości numerycznej dt."""
+        for text, val in self.step_options.items():
+            if math.isclose(val, dt, abs_tol=1e-6):
+                return text
+        return "0.010 s (10 ms)"
+
+    def get_satellite_state(
+        self, config: SimulationConfiguration | None = None
+    ) -> Tuple[List[float], List[float], List[float]]:
+        # 1. Pobranie i deserializacja konfiguracji satelity (z config lub fallback do self.satellite_data)
+        sate_config = getattr(config, "satellite_configuration", None)
+        if sate_config is None and hasattr(self, "satellite_data"):
+            sate_config = self.satellite_data
+
+        sat_obj = deserialize_satellite_configuration(sate_config)
+        mech = getattr(sat_obj, "mechanical", None)
 
         if mech is not None:
-            dimensions_m = (
-                getattr(mech, "a", 1.0),
-                getattr(mech, "b", 1.0),
-                getattr(mech, "h", 1.0),
-            )
+            dimensions_m = [float(mech.a), float(mech.b), float(mech.h)]
         else:
-            dimensions_m = (1.0, 1.0, 1.0)
-        
+            dimensions_m = [1.0, 1.0, 1.0]
+
+        # 2. Pozycja początkowa [km] (z config lub z pól interfejsu)
         if config is not None and getattr(config, "initial_position", None) is not None:
-            pos_km = list(config.initial_position)
+            pos_km = [float(x) for x in config.initial_position]
         else:
             pos_km = [
                 self._parse_field_number(self.calculated_position[0]) or 0.0,
@@ -230,16 +329,22 @@ class SimulationControls(QWidget):
                 self._parse_field_number(self.calculated_position[2]) or 0.0,
             ]
 
-        euler_deg = [
-            self._parse_field_number(self.input_euler_angles[0]) or 0.0,
-            self._parse_field_number(self.input_euler_angles[1]) or 0.0,
-            self._parse_field_number(self.input_euler_angles[2]) or 0.0,
-        ]   
+        # 3. Kąty Eulera [deg] (przeliczone z kwaternionu w config lub z pól GUI)
+        if config is not None and getattr(config, "initial_quat_orientation", None) is not None:
+            quat = np.asarray(config.initial_quat_orientation, dtype=float)
+            if quat.size >= 4:
+                roll, pitch, yaw = quaternion_to_euler(quat[:4], degrees=True)
+                euler_deg = [float(roll), float(pitch), float(yaw)]
+            else:
+                euler_deg = [0.0, 0.0, 0.0]
+        else:
+            euler_deg = [
+                self._parse_field_number(self.input_euler_angles[0]) or 0.0,
+                self._parse_field_number(self.input_euler_angles[1]) or 0.0,
+                self._parse_field_number(self.input_euler_angles[2]) or 0.0,
+            ]
 
         return dimensions_m, pos_km, euler_deg
-
-    def _build_plots_tab(self) -> None:
-        pass
 
     def emit_current_satellite_state(self) -> None:
         """Emituje aktualny stan satelity do widoku 3D."""
@@ -562,6 +667,7 @@ class SimulationControls(QWidget):
                 return None
             numeric_angular_velocity.append(value)
 
+
         self.current_configuration = SimulationConfiguration(
             orbital_data=self.orbital_data,
             satellite_configuration=self.satellite_data,
@@ -572,6 +678,7 @@ class SimulationControls(QWidget):
                                                          yaw=numeric_euler_angles[2],
                                                          degrees=True),
             initial_angular_velocities=np.array(numeric_angular_velocity, dtype=float),
+            dt=self.step_val
         )
         return self.current_configuration
 
@@ -617,9 +724,9 @@ class SimulationControls(QWidget):
             icon=QMessageBox.Icon.Information
         )
 
-    def load_from_file(self, payload) -> None:
+    def load_from_file(self, payload: dict) -> None:
         self.reset()
-    
+
         orbital_data = payload.get("orbital_data", {})
         if not isinstance(orbital_data, dict) or not orbital_data:
             show_dark_message_box(
@@ -628,7 +735,7 @@ class SimulationControls(QWidget):
                 "The JSON does not contain a valid orbital_data section.",
                 icon=QMessageBox.Icon.Warning,
             )
-            raise ValueError
+            raise ValueError("Invalid orbital_data section")
 
         try:
             raw_true_anomaly = float(orbital_data.get("true_anomaly", 0.0))
@@ -640,7 +747,9 @@ class SimulationControls(QWidget):
                 true_anomaly_rad = math.radians(raw_true_anomaly)
 
             loaded_orbit = OrbitalElements(
-                semi_major_axis=float(orbital_data.get("semi_major_axis", 7000000.0)),
+                semi_major_axis=float(
+                    orbital_data.get("semi_major_axis", 7000000.0)
+                ),
                 eccentricity=float(orbital_data.get("eccentricity", 0.0)),
                 raan=float(orbital_data.get("raan", 0.0)),
                 inclination=float(orbital_data.get("inclination", 0.0)),
@@ -658,10 +767,19 @@ class SimulationControls(QWidget):
 
         self.orbital_data = loaded_orbit
 
-        initial_position = np.asarray(payload.get("initial_position", [0.0, 0.0, 0.0]), dtype=float)
-        initial_velocities = np.asarray(payload.get("initial_velocities", [0.0, 0.0, 0.0]), dtype=float)
-        initial_angular_velocities = np.asarray(payload.get("initial_angular_velocities", [0.0, 0.0, 0.0]), dtype=float)
-        quat = np.asarray(payload.get("initial_quat_orientation", [1.0, 0.0, 0.0, 0.0]), dtype=float)
+        initial_position = np.asarray(
+            payload.get("initial_position", [0.0, 0.0, 0.0]), dtype=float
+        )
+        initial_velocities = np.asarray(
+            payload.get("initial_velocities", [0.0, 0.0, 0.0]), dtype=float
+        )
+        initial_angular_velocities = np.asarray(
+            payload.get("initial_angular_velocities", [0.0, 0.0, 0.0]), dtype=float
+        )
+        quat = np.asarray(
+            payload.get("initial_quat_orientation", [1.0, 0.0, 0.0, 0.0]),
+            dtype=float,
+        )
 
         if quat.size >= 4:
             roll, pitch, yaw = quaternion_to_euler(quat[:4], degrees=True)
@@ -669,7 +787,21 @@ class SimulationControls(QWidget):
         else:
             euler_values = [0.0, 0.0, 0.0]
 
-        input_widgets = [self.input_true_anomaly] + list(self.input_euler_angles) + list(self.input_angular_velocity)
+        # Poprawka 1: Użycie .get() na dict zamiast getattr()
+        self.step_val = float(payload.get("dt", 0.010))
+        raw_sat_config = payload.get("satellite_configuration", {})
+        self.satellite_data = raw_sat_config
+
+        # Poprawka 2: Aktualizacja wyboru w QComboBox
+        if hasattr(self, "combo_step_size"):
+            step_text = self._get_step_text_from_value(self.step_val)
+            self.combo_step_size.setCurrentText(step_text)
+
+        input_widgets = (
+            [self.input_true_anomaly]
+            + list(self.input_euler_angles)
+            + list(self.input_angular_velocity)
+        )
         blockers = [QSignalBlocker(widget) for widget in input_widgets]
 
         self.input_true_anomaly.setText(f"{true_anomaly_deg:.3f}")
@@ -719,3 +851,6 @@ class SimulationControls(QWidget):
         self._update_calculated_state()
         self.btn_start_simulation.setEnabled(False)
         self.btn_save.setEnabled(False)
+        self._plots_tab.reset()
+        if self.control_panel.engine is not None:
+            self.control_panel.engine.reset()

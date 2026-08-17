@@ -43,9 +43,9 @@ class SimulationScene(QWidget):
         self.view.addItem(self.earth)
         self.view.opts["glOptions"] = "opaque"
 
-        self.view.setCameraPosition(distance=0.006, azimuth=30, elevation=20)
+        self.view.setCameraPosition(distance=0.005, azimuth=30, elevation=20)
 
-        self._set_camera_limits(0.006, 0.006)
+        self._set_camera_limits(0.005, 0.005)
         self._ensure_ECEF_orientation(self.initial_gmst)
 
         layout.addWidget(self.view)

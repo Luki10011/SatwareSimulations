@@ -23,4 +23,5 @@ class SimulationConfiguration:
     initial_velocities: np.ndarray
     initial_quat_orientation: np.ndarray
     initial_angular_velocities: np.ndarray
+    dt : float = 0.1
 

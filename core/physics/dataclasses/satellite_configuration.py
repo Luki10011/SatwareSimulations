@@ -407,3 +407,99 @@ def serialize_satellite_configuration(config: SatelliteConfiguration) -> Dict[st
             "inertia_tensor": config.reaction_wheels.inertia_tensor.tolist(),
         },
     }
+
+def _get_field(obj: Any, key: str, alt_key: str = None, default: Any = None) -> Any:
+    """Bezpiecznie pobiera wartość z obiektu lub słownika."""
+    if obj is None:
+        return default
+
+    # Jeśli obiekt jest słownikiem
+    if isinstance(obj, dict):
+        val = obj.get(key)
+        if val is None and alt_key:
+            val = obj.get(alt_key)
+        return val if val is not None else default
+
+    # Jeśli obiekt jest instancją klasy / dataclass
+    val = getattr(obj, key, None)
+    if val is None and alt_key:
+        val = getattr(obj, alt_key, None)
+    return val if val is not None else default
+
+
+def deserialize_satellite_configuration(data: Any) -> SatelliteConfiguration:
+    """Uniwersalna funkcja konwertująca słownik lub obiekt na SatelliteConfiguration."""
+    if data is None:
+        data = {}
+
+    # 1. Automatyczne odpakowanie, jeśli przekazano cały payload
+    if isinstance(data, dict) and "satellite_configuration" in data:
+        data = data["satellite_configuration"]
+    elif hasattr(data, "satellite_configuration"):
+        data = getattr(data, "satellite_configuration")
+
+    # Jeśli to już jest prawidłowa instancja SatelliteConfiguration
+    if isinstance(data, SatelliteConfiguration):
+        return data
+
+    # 2. Sekcja Mechanical
+    mech_raw = _get_field(data, "mechanical", default={})
+
+    dims = _get_field(mech_raw, "dimensions")
+    if dims and isinstance(dims, (list, tuple)) and len(dims) >= 3:
+        a_val, b_val, h_val = dims[0], dims[1], dims[2]
+    else:
+        a_val = _get_field(mech_raw, "a", default=1.0)
+        b_val = _get_field(mech_raw, "b", default=1.0)
+        h_val = _get_field(mech_raw, "h", default=1.0)
+
+    m_val = _get_field(mech_raw, "m", alt_key="mass", default=1.0)
+    I_val = _get_field(mech_raw, "I", alt_key="inertia_tensor", default=np.eye(3))
+
+    mechanical = SatelliteMechanicalConfiguration(
+        m=float(m_val),
+        I=np.asarray(I_val, dtype=np.float64),
+        a=float(a_val),
+        b=float(b_val),
+        h=float(h_val),
+    )
+
+    # 3. Sekcja Electromagnetic
+    em_raw = _get_field(data, "electromagnetic", default={})
+
+    N_val = _get_field(em_raw, "N", alt_key="coil_turns", default=100)
+    A_val = _get_field(em_raw, "A", alt_key="coil_area", default=0.01)
+    I_max_val = _get_field(em_raw, "I_max", alt_key="max_current", default=1.0)
+
+    electromagnetic = SatelliteCoilsConfiguration(
+        N=int(N_val),
+        A=float(A_val),
+        I_max=float(I_max_val),
+    )
+
+    # 4. Sekcja Reaction Wheels
+    rw_raw = _get_field(data, "reaction_wheels", default={})
+
+    config_val = _get_field(rw_raw, "configuration", default="pyramid")
+    count_val = _get_field(rw_raw, "wheel_count", default=4)
+    mass_val = _get_field(rw_raw, "wheel_mass", default=0.025)
+    radius_val = _get_field(rw_raw, "wheel_radius", default=0.04)
+    height_val = _get_field(rw_raw, "wheel_height", default=0.04)
+    speed_val = _get_field(rw_raw, "wheel_max_speed", default=3000.0)
+    rw_I_val = _get_field(rw_raw, "inertia_tensor", default=np.eye(3))
+
+    reaction_wheels = SatelliteReactionWheelsConfiguration(
+        configuration=str(config_val),
+        wheel_count=int(count_val),
+        wheel_mass=float(mass_val),
+        wheel_radius=float(radius_val),
+        wheel_height=float(height_val),
+        wheel_max_speed=float(speed_val),
+        inertia_tensor=np.asarray(rw_I_val, dtype=np.float64),
+    )
+
+    return SatelliteConfiguration(
+        mechanical=mechanical,
+        electromagnetic=electromagnetic,
+        reaction_wheels=reaction_wheels,
+    )
