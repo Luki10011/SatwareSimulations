@@ -18,11 +18,8 @@ from core.physics.solver.simulation_engine import SimulationEngine
 class SimulationControlPanel(QWidget):
     """Zakładka sterowania biegiem symulacji, skali czasu oraz przełączników wizualizacji 3D."""
 
-    play_requested = pyqtSignal()
-    pause_requested = pyqtSignal()
     reset_requested = pyqtSignal()
     speed_changed = pyqtSignal(int)
-    step_size_changed = pyqtSignal(float)  
     overlay_toggled = pyqtSignal(str, bool)  
     state_updated = pyqtSignal(object)  
 
@@ -132,12 +129,12 @@ class SimulationControlPanel(QWidget):
         self.is_running = not self.is_running
         if self.is_running:
             self.btn_play_pause.setText("Pause")
-            self.timer.start()  # Uruchomienie timera!
-            self.play_requested.emit()
+            self.timer.start()  
+            # self.play_requested.emit()
         else:
             self.btn_play_pause.setText("Play")
-            self.timer.stop()   # Zatrzymanie timera!
-            self.pause_requested.emit()
+            self.timer.stop()   
+            # self.pause_requested.emit()
 
     def _on_speed_changed(self, value: int) -> None:
         self.speed_multiplier = value

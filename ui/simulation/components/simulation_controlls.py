@@ -55,17 +55,50 @@ class SimulationControls(QWidget):
         self._update_calculated_state()
         self.emit_current_satellite_state()
 
-    def update_data(self, orbital_data: OrbitalElements, satellite_data: SatelliteConfiguration):
+    def update_data(self, orbital_data: OrbitalElements, satellite_data: SatelliteConfiguration) -> None:
+        """Ujednolicona metoda ładująca dane z obiektów Python (nowa symulacja)."""
         self.reset()
         self.clear_errors()
+
         self.orbital_data = orbital_data
-        self.satellite_data = satellite_data
-        
-        with QSignalBlocker(self.input_true_anomaly):
-            self.input_true_anomaly.setText(str(orbital_data.true_anomaly))
-            
-        self._update_calculated_state()
+        self.satellite_data = (
+            deserialize_satellite_configuration(satellite_data)
+            if isinstance(satellite_data, dict)
+            else satellite_data
+        )
+
+        # 1. Konwersja True Anomaly (radiany -> stopnie) dla pola GUI
+        raw_nu = getattr(orbital_data, "true_anomaly", 0.0)
+        if abs(raw_nu) <= 2.0 * math.pi + 1e-6:
+            true_anomaly_deg = math.degrees(raw_nu)
+        else:
+            true_anomaly_deg = raw_nu
+
+        # 2. Blokada sygnałów na WSZYSTKICH polach edycyjnych na czas wpisywania danych
+        input_widgets = (
+            [self.input_true_anomaly]
+            + list(self.input_euler_angles)
+            + list(self.input_angular_velocity)
+        )
+        blockers = [QSignalBlocker(widget) for widget in input_widgets]
+
+        self.input_true_anomaly.setText(f"{true_anomaly_deg:.3f}")
+
+        for edit in self.input_euler_angles:
+            edit.setText("0.000")
+
+        for edit in self.input_angular_velocity:
+            edit.setText("0.000")
+
+        del blockers
+
+        # 4. Aktualizacja przeliczeń i odblokowanie przycisku startu
         self._sync_error_state(mark_errors=False)
+        self._update_calculated_state()
+
+        self.btn_start_simulation.setEnabled(True)
+        self.btn_save.setEnabled(True)
+
         self.emit_current_satellite_state()
 
     def setup_view(self) -> None:
@@ -852,5 +885,7 @@ class SimulationControls(QWidget):
         self.btn_start_simulation.setEnabled(False)
         self.btn_save.setEnabled(False)
         self._plots_tab.reset()
+        self.control_panel._on_reset_clicked()
         if self.control_panel.engine is not None:
             self.control_panel.engine.reset()
+            self.control_panel.engine = None

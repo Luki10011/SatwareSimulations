@@ -28,6 +28,8 @@ class SimulationView(QWidget):
         self.setup_view()
 
     def load_simulation(self, orbital_data : OrbitalElements, satellite_data : SatelliteConfiguration):
+
+        self.reset()
         now = datetime.datetime.now(datetime.timezone.utc)
         current_jd = datetime_to_julian_date(now)
         
@@ -37,11 +39,9 @@ class SimulationView(QWidget):
         self.satellite_data = satellite_data
         print("Simulation data successfully loaded into SimulationView.")
 
-        self.scene_panel_container._clear_satellite()
-        
         self.controls_panel_container.update_data(
-            orbital_data=orbital_data,
-            satellite_data=satellite_data
+            orbital_data=self.orbital_data,
+            satellite_data=self.satellite_data
         )
 
         self.scene_panel_container._ensure_ECEF_orientation(self.current_ecef_rotation)
@@ -67,7 +67,7 @@ class SimulationView(QWidget):
                 mechnical_data = payload.get("satellite_configuration", {})
                 if not orbital_data or not mechnical_data:
                     raise ValueError("Missing required simulation data")
-                
+                handle.close()
         except (OSError, ValueError, TypeError):
             show_dark_message_box(
                 self,

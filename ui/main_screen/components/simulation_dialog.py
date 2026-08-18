@@ -1,7 +1,7 @@
 import json
 from typing import Any, Tuple, Dict, List
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -249,6 +249,7 @@ class SimulationDialog(QDialog):
 
         with open(file_path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
+            handle.close()
 
         errors = validate_satellite_configuration_data(data)
         if errors:
@@ -302,6 +303,7 @@ class SimulationDialog(QDialog):
 
         with open(file_path, "r", encoding="utf-8") as handle:
             data = json.load(handle)   
+            handle.close()
 
         errors = self.validate_orbit_configuration_data(data)
         if errors:
@@ -601,3 +603,34 @@ class SimulationDialog(QDialog):
             </table>
         </body>
         </html>"""
+
+    def cleanup(self) -> None:
+        """Bezpieczne zatrzymanie timerów i zwolnienie podglądu 3D."""
+        # 1. Zatrzymanie timerów (z zabezpieczeniem przed zniszczonym obiektem)
+        try:
+            for timer in self.findChildren(QTimer):
+                if timer and timer.isActive():
+                    timer.stop()
+        except (RuntimeError):
+            pass
+
+        # 2. Czyszczenie podglądu 3D (np. PyVista/VTK/Qt3D), jeśli istnieje w dialogu
+        if hasattr(self, 'preview_3d') and self.preview_3d is not None:
+            try:
+                if hasattr(self.preview_3d, 'close'):
+                    self.preview_3d.close()
+            except Exception:
+                pass
+            self.preview_3d = None
+
+    def closeEvent(self, event):
+        self.cleanup()
+        super().closeEvent(event)
+
+    def reject(self):
+        self.cleanup()
+        super().reject()
+
+    def accept(self):
+        self.cleanup()
+        super().accept()

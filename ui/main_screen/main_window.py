@@ -324,15 +324,21 @@ class MainWindow(QMainWindow):
         if self._is_switching:
             return
 
-        dialog = SimulationDialog(self)
+        # UWAGA: Nie ustawiamy WA_DeleteOnClose! Chcemy sami kontrolować moment usunięcia.
+        dialog = SimulationDialog()
+        dialog.setStyleSheet(self.styleSheet())
+    
         if dialog.exec() == QDialog.DialogCode.Accepted:
+            # 1. NAJPIERW odczytujemy wybrane dane, póki obiekt C++ istnieje
+            selected_orbit = dialog.selected_orbit
+            selected_satellite = dialog.selected_satellite
 
-            if dialog.selected_orbit and dialog.selected_satellite:
-                selected_orbit = dialog.selected_orbit
-                selected_satellite = dialog.selected_satellite
+            # 2. TERAZ bezpiecznie czyścimy timery/zasoby 3D i zlecam usuwanie
+            dialog.cleanup()
+            dialog.deleteLater()
 
+            if selected_orbit and selected_satellite:
                 def action():
-                    # set the selected orbit and satellitce data in the simulation view
                     self.simulation_view.load_simulation(
                         orbital_data=selected_orbit,
                         satellite_data=selected_satellite
@@ -348,6 +354,10 @@ class MainWindow(QMainWindow):
                     "Please select both an orbit and a satellite configuration to proceed with the simulation.",
                     icon=QMessageBox.Icon.Warning
                 )
+        else:
+            # W przypadku anulowania okna również czyścimy zasoby i kasujemy dialog
+            dialog.cleanup()
+            dialog.deleteLater()
 
     def load_simulation_from_file(self):
         """Loads simulation configuration from file"""
