@@ -103,3 +103,51 @@ def get_initial_gmst(julian_date: float) -> float:
     d = julian_date - 2451545.0  # Dni od epoki J2000.0 (1 stycznia 2000, 12:00 UTC)
     gmst = 280.46061837 + 360.98564736629 * d
     return gmst % 360.0
+
+def euler_321_to_rotation_matrix(phi: float, theta: float, psi: float) -> np.ndarray:
+    """Macierz obrotu 3-2-1 (ZYX) do transformacji z układu NED do inercjalnego."""
+    c_ph, s_ph = np.cos(phi), np.sin(phi)
+    c_th, s_th = np.cos(theta), np.sin(theta)
+    c_ps, s_ps = np.cos(psi), np.sin(psi)
+
+    r_z = np.array([
+        [c_ps, -s_ps, 0.0],
+        [s_ps,  c_ps, 0.0],
+        [0.0,    0.0, 1.0]
+    ])
+    r_y = np.array([
+        [ c_th, 0.0, s_th],
+        [  0.0, 1.0,  0.0],
+        [-s_th, 0.0, c_th]
+    ])
+    r_x = np.array([
+        [1.0,   0.0,    0.0],
+        [0.0, c_ph, -s_ph],
+        [0.0, s_ph,  c_ph]
+    ])
+    return r_z @ r_y @ r_x
+
+
+def quaternion_to_rotation_matrix(q: np.ndarray) -> np.ndarray:
+    """
+    Tworzy macierz obrotu R_body2eci z kwaternionu q = [qw, qx, qy, qz].
+    """
+    qw, qx, qy, qz = q / np.linalg.norm(q)
+
+    r00 = 1.0 - 2.0 * (qy**2 + qz**2)
+    r01 = 2.0 * (qx * qy - qw * qz)
+    r02 = 2.0 * (qx * qz + qw * qy)
+
+    r10 = 2.0 * (qx * qy + qw * qz)
+    r11 = 1.0 - 2.0 * (qx**2 + qz**2)
+    r12 = 2.0 * (qy * qz - qw * qx)
+
+    r20 = 2.0 * (qx * qz - qw * qy)
+    r21 = 2.0 * (qy * qz + qw * qx)
+    r22 = 1.0 - 2.0 * (qx**2 + qy**2)
+
+    return np.array([
+        [r00, r01, r02],
+        [r10, r11, r12],
+        [r20, r21, r22]
+    ])

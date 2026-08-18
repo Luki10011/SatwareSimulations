@@ -85,9 +85,12 @@ class SimulationPlotsPanel(QWidget):
             "omega_y",
             "omega_z",
         ],
-        "ECI Position (X, Y, Z) [km]": ["pos_x", "pos_y", "pos_z"],
-        "ECI Velocity (Vx, Vy, Vz) [km/s]": ["vel_x", "vel_y", "vel_z"],
+        # "ECI Position (X, Y, Z) [km]": ["pos_x", "pos_y", "pos_z"],
+        # "ECI Velocity (Vx, Vy, Vz) [km/s]": ["vel_x", "vel_y", "vel_z"],
         "Quaternion (q0, q1, q2, q3)": ["q0", "q1", "q2", "q3"],
+        "Magnetic Field (Bx, By, Bz) [T]" : ["b_body_x", "b_body_y", "b_body_z"],
+        "Control Current (Ix, Iy, Iz) [A]" : ["i_ctrl_x", "i_ctrl_y", "i_ctrl_z"],
+        "Bdot Torque (tau_x, tau_y, tau_z) [N]" : ["tau_ctrl_x", "tau_ctrl_y", "tau_ctrl_z"],
     }
 
     CURVE_COLORS = ["#FF5252", "#4CAF50", "#2196F3", "#FFEB3B"]

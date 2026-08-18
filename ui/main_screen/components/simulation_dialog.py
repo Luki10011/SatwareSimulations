@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from core.physics.dataclasses.orbital_data import OrbitalElements
-from core.physics.dataclasses.satellite_configuration import SatelliteConfiguration, build_satellite_configuration, validate_satellite_configuration_data
+from core.physics.dataclasses.satellite_configuration import SatelliteConfiguration, build_satellite_configuration, calculate_total_inertia_tensor, reaction_wheel_axes, validate_satellite_configuration_data
 from ui.main_screen.components.predefined_orbit import PredefinedOrbitDialog
 from utils.constants import ORBITAL_RANGES, ORBITS_DATA
 import numpy as np
@@ -447,6 +447,19 @@ class SimulationDialog(QDialog):
         if not isinstance(I_tensor, np.ndarray) or I_tensor.shape != (3, 3):
             I_tensor = np.zeros((3, 3))
 
+        wheel_axes_list = reaction_wheel_axes(
+            str(rw_config).strip().lower(),
+            rw_count,
+        )
+
+        total_tensor = calculate_total_inertia_tensor(
+            mechanical_tensor=I_tensor,
+            wheel_mass=rw_mass,
+            wheel_radius=rw_radius,
+            wheel_height=rw_height,
+            wheel_axes=wheel_axes_list,
+        )
+
         return f"""<!DOCTYPE html>
             <html>
             <head>
@@ -509,19 +522,19 @@ class SimulationDialog(QDialog):
                 <h2>Body Inertia Tensor [kg·m²]</h2>
                 <table class="tensor-table">
                     <tr>
-                        <td>{self.fmt(I_tensor[0, 0], "{:.6f}")}</td>
-                        <td>{self.fmt(I_tensor[0, 1], "{:.6f}")}</td>
-                        <td>{self.fmt(I_tensor[0, 2], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[0, 0], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[0, 1], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[0, 2], "{:.6f}")}</td>
                     </tr>
                     <tr>
-                        <td>{self.fmt(I_tensor[1, 0], "{:.6f}")}</td>
-                        <td>{self.fmt(I_tensor[1, 1], "{:.6f}")}</td>
-                        <td>{self.fmt(I_tensor[1, 2], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[1, 0], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[1, 1], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[1, 2], "{:.6f}")}</td>
                     </tr>
                     <tr>
-                        <td>{self.fmt(I_tensor[2, 0], "{:.6f}")}</td>
-                        <td>{self.fmt(I_tensor[2, 1], "{:.6f}")}</td>
-                        <td>{self.fmt(I_tensor[2, 2], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[2, 0], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[2, 1], "{:.6f}")}</td>
+                        <td>{self.fmt(total_tensor[2, 2], "{:.6f}")}</td>
                     </tr>
                 </table>
             </body>

@@ -25,7 +25,7 @@ from core.physics.dataclasses.simulation_data import (
 from core.physics.solver.simulation_engine import SimulationEngine
 
 from core.physics.dataclasses.orbital_data import OrbitalElements
-from core.physics.dataclasses.satellite_configuration import SatelliteConfiguration, deserialize_satellite_configuration
+from core.physics.dataclasses.satellite_configuration import SatelliteConfiguration, calculate_total_inertia_tensor, deserialize_satellite_configuration, reaction_wheel_axes
 from ui.simulation.components.simualtion_plots import SimulationPlotsPanel
 from ui.simulation.components.simulation_control_panel import SimulationControlPanel
 from utils.constants import CONSTANTS
@@ -279,51 +279,122 @@ class SimulationControls(QWidget):
         if isinstance(sate_config, dict):
             sate_config = deserialize_satellite_configuration(sate_config)
 
-        print(sate_config.mechanical.I)
-        # 2. Bezpieczne pobranie macierzy bezwładności
+        # 2. Bezpieczne pobranie parametrów mechanicznych i domyślne wartości
         if sate_config and hasattr(sate_config, "mechanical"):
-            I_matrix = np.asarray(sate_config.mechanical.I, dtype=np.float64)
+            I_S = np.asarray(sate_config.mechanical.I, dtype=np.float64)
         else:
-            I_matrix = np.eye(3, dtype=np.float64)
+            I_S = np.eye(3, dtype=np.float64)
+
+        # Domyślne wartości dla kół reakcyjnych
+        I_R = np.eye(3, dtype=np.float64)
+        rw_mass = 0.0
+        rw_radius = 0.0
+        rw_height = 0.0
+        rw_configuraion = "N/A"
+        rw_count = 0
+        rw_max_speed = 0.0
+        wheel_axes_list = []
+        total_tensor = I_S.copy()
+
+        if sate_config and hasattr(sate_config, "reaction_wheels"):
+            I_R = np.asarray(sate_config.reaction_wheels.inertia_tensor, dtype=np.float64)
+            rw_mass = sate_config.reaction_wheels.wheel_mass
+            rw_radius = sate_config.reaction_wheels.wheel_radius
+            rw_height = sate_config.reaction_wheels.wheel_height
+            rw_configuraion = sate_config.reaction_wheels.configuration
+            rw_count = sate_config.reaction_wheels.wheel_count
+            rw_max_speed = sate_config.reaction_wheels.wheel_max_speed
+            
+            wheel_axes_list = reaction_wheel_axes(
+                str(rw_configuraion).strip().lower(),
+                rw_count,
+            )
+            
+            total_tensor = calculate_total_inertia_tensor(
+                mechanical_tensor=I_S,
+                wheel_mass=rw_mass,
+                wheel_radius=rw_radius,
+                wheel_height=rw_height,
+                wheel_axes=wheel_axes_list,
+            )
+
+        # Domyślne wartości dla magnetorquerów
+        coil_turns = 0
+        area = 0.0
+        max_current = 0.0
+
+        if sate_config and hasattr(sate_config, "electromagnetic"):
+            coil_turns = sate_config.electromagnetic.N
+            area = sate_config.electromagnetic.A
+            max_current = sate_config.electromagnetic.I_max
 
         # 3. Przeliczenie jednostek na SI dla solvera RK4
         pos_m = config.initial_position * 1000.0
         vel_ms = config.initial_velocities * 1000.0
         omega_rads = np.radians(config.initial_angular_velocities)
+        omega_rw_rads = np.zeros(rw_count)
 
         # 4. Pobranie kroku czasowego z konfiguracji lub stanu klasy
         dt_val = getattr(config, "dt", self.step_val)
 
+        # Inicjalizacja silnika symulacji
         self.control_panel.engine = SimulationEngine(
             initial_state=SatelliteState(
                 p=pos_m,
                 v=vel_ms,
                 q=config.initial_quat_orientation,
                 omega=omega_rads,
+                omega_rw=omega_rw_rads
             ),
-            I_matrix=I_matrix,
+            I_S=I_S,
+            I_R=I_R,
+            wheel_axes=wheel_axes_list,
+            I_total=total_tensor,
+            rw_max_speed=rw_max_speed,
             dt=dt_val,
+            area=area,
+            max_current=max_current,
+            coil_turns=coil_turns,
         )
 
         # --- Print informacji o uruchomionym eksperymencie ---
         print("\n" + "=" * 65)
         print("               SIMULATION EXPERIMENT INITIALIZED               ")
         print("=" * 65)
-        print(f" [Time Settings] Integration Step (dt) : {self.step_val:.4f} s")
+        print(f" [Time Settings] Integration Step (dt) : {dt_val:.4f} s")
         print("-" * 65)
-        print(" [User Inputs]")
+        print(" [User Inputs Initial State]")
         print(f"  • Position (r)          : {config.initial_position} [km]")
         print(f"  • Velocity (v)          : {config.initial_velocities} [km/s]")
         print(f"  • Angular Velocity (ω)  : {config.initial_angular_velocities} [deg/s]")
         print(f"  • Quaternion (q)        : {config.initial_quat_orientation}")
         print("-" * 65)
-        print(" [Internal Physics State (SI Units)]")
+        print(" [Internal Physics Initial State (SI Units)]")
         print(f"  • Position (r_SI)       : {pos_m} [m]")
         print(f"  • Velocity (v_SI)       : {vel_ms} [m/s]")
         print(f"  • Angular Velocity (ω)  : {omega_rads} [rad/s]")
         print("-" * 65)
-        print(" [Inertia Tensor Matrix (I)]")
-        for row in I_matrix:
+        print(" [Reaction Wheels Configuration]")
+        print(f"  • Wheel Count           : {rw_count}")
+        print(f"  • Configuration Type    : {rw_configuraion}")
+        print(f"  • Wheel Mass / Rad / H  : {rw_mass} kg / {rw_radius} m / {rw_height} m")
+        print(f"  • Max Speed             : {rw_max_speed} rad/s")
+        if wheel_axes_list:
+            print("  • Spin Axes Vectors     :")
+            for idx, axis in enumerate(wheel_axes_list):
+                print(f"      - RW_{idx+1}: [{axis[0]:.3f}, {axis[1]:.3f}, {axis[2]:.3f}]")
+        print("-" * 65)
+        print(" [Electromagnetic Actuators (Magnetorquers)]")
+        print(f"  • Coil Turns (N)        : {coil_turns}")
+        print(f"  • Effective Area (A)    : {area} m²")
+        print(f"  • Max Current (I_max)   : {max_current} A")
+        print("-" * 65)
+        print(" [Satellite Structure Inertia Tensor (I_S)]")
+        for row in I_S:
+            print(f"   | {row[0]:12.6f} {row[1]:12.6f} {row[2]:12.6f} |")
+        print("-" * 65)
+        print(" [Total System Inertia Tensor (I_total)]")
+        for row in total_tensor:
             print(f"   | {row[0]:12.6f} {row[1]:12.6f} {row[2]:12.6f} |")
         print("=" * 65 + "\n")
 

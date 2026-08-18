@@ -8,49 +8,49 @@
     ],
     "inertia_tensor": [
       [
-        0.0033968888888888894,
+        0.003333,
         0.0,
         0.0
       ],
       [
         0.0,
-        0.0033968888888888894,
+        0.003333,
         0.0
       ],
       [
         0.0,
         0.0,
-        0.0033968888888888894
+        0.003333
       ]
     ]
   },
   "electromagnetic": {
     "coil_turns": 100,
-    "coil_area": 0.03,
-    "max_current": 2.0
+    "coil_area": 0.04,
+    "max_current": 1.0
   },
   "reaction_wheels": {
-    "configuration": "pyramid",
-    "wheel_count": 4,
-    "wheel_mass": 0.025,
+    "configuration": "principal",
+    "wheel_count": 3,
+    "wheel_mass": 0.25,
     "wheel_radius": 0.04,
     "wheel_height": 0.04,
     "wheel_max_speed": 3000.0,
     "inertia_tensor": [
       [
-        1.3333333333333333e-05,
+        0.00013333333333333334,
         0.0,
         0.0
       ],
       [
         0.0,
-        1.3333333333333333e-05,
+        0.00013333333333333334,
         0.0
       ],
       [
         0.0,
         0.0,
-        2e-05
+        0.0002
       ]
     ]
   }

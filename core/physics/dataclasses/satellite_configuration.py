@@ -140,19 +140,34 @@ def calculate_reaction_wheel_local_inertia(wheel_mass: float, wheel_radius: floa
 
 
 def calculate_axisymmetric_cylinder_inertia_tensor(
-    wheel_mass: float,
-    wheel_radius: float,
-    wheel_height: float,
-    axis: np.ndarray,
+    wheel_mass: float = None,
+    wheel_radius: float = None,
+    wheel_height: float = None,
+    axis: np.ndarray = None,
+    wheel_tensor : np.ndarray = None
 ) -> np.ndarray:
     """
     Transform wheel inertia tensor from local frame to body frame: I_Ri^B = T_Ri^T * I_RWi * T_Ri
     (Eq. tensor_transformacja)
     """
-    i_rwi = calculate_reaction_wheel_local_inertia(wheel_mass, wheel_radius, wheel_height)
+    if wheel_tensor is not None:
+        i_rwi = np.asarray(wheel_tensor, dtype=float)
+        if i_rwi.shape != (3, 3):
+            raise ValueError("Wektor/macierz 'wheel_tensor' musi mieć wymiary 3x3.")
+    else:
+        if wheel_mass is None or wheel_radius is None or wheel_height is None:
+            raise ValueError(
+                "W przypadku braku 'wheel_tensor' należy podać parametry: "
+                "wheel_mass, wheel_radius oraz wheel_height."
+            )
+        i_rwi = calculate_reaction_wheel_local_inertia(wheel_mass, wheel_radius, wheel_height)
+
+    if axis is None:
+        axis = np.array([0.0, 0.0, 1.0], dtype=float)
+
     t_ri = calculate_rotation_matrix_to_axis(axis)
+    i_ri_b = t_ri @ i_rwi @ t_ri.T
     
-    i_ri_b = t_ri.T @ i_rwi @ t_ri
     return i_ri_b
 
 
@@ -346,24 +361,13 @@ def build_satellite_configuration(data: Dict[str, Any]) -> SatelliteConfiguratio
     wheel_radius = _coerce_float(reaction_wheels.get("wheel_radius"), 0.05)
     wheel_height = _coerce_float(reaction_wheels.get("wheel_height"), 0.02)
     wheel_max_speed = _coerce_float(reaction_wheels.get("wheel_max_speed"), 6000.0)
-    wheel_axes_list = reaction_wheel_axes(
-        str(reaction_wheels.get("configuration", "principal")).strip().lower(),
-        _coerce_int(reaction_wheels.get("wheel_count"), 3),
-    )
 
     wheel_tensor = calculate_reaction_wheel_local_inertia(wheel_mass, wheel_radius, wheel_height)
-    total_tensor = calculate_total_inertia_tensor(
-        mechanical_tensor=inertia_array,
-        wheel_mass=wheel_mass,
-        wheel_radius=wheel_radius,
-        wheel_height=wheel_height,
-        wheel_axes=wheel_axes_list,
-    )
 
     return SatelliteConfiguration(
         mechanical=SatelliteMechanicalConfiguration(
             m=_coerce_float(mechanical.get("mass"), 12.5),
-            I=total_tensor,
+            I=inertia_array,
             a=_coerce_float(dimensions[0], 0.0),
             b=_coerce_float(dimensions[1], 0.0),
             h=_coerce_float(dimensions[2], 0.0),
