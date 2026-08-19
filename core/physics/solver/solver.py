@@ -6,24 +6,29 @@ mu = CONSTANTS["mu"]
 
 
 def equations_of_motion(
-    t: float, 
-    y: np.ndarray, 
+    t: float,
+    y: np.ndarray,
     I_inv: np.ndarray,
     I_S: np.ndarray,
-    I_RBs: np.ndarray,
-    wheel_axes,
-    tau_ctrl : np.ndarray,
+    wheel_axes: list,
+    tau_ext: np.ndarray,
+    alpha_wheels: np.ndarray = None,
+    I_R_spin: float = 0.0,
 ) -> np.ndarray:
-    """Równania swobodnego ruchu satelity (bez zakłóceń)."""
+
+    N_R = len(wheel_axes)
 
     # ================ current state ================
     p = y[0:3]
     v = y[3:6]
     q = y[6:10]  # [qw, qx, qy, qz]
     omega = y[10:13]
-    omega_rw = y[13:]
+    omega_rw = y[13 : 13 + N_R] if len(y) >= 13 + N_R else np.zeros(N_R)
 
     # ================================================
+
+    if alpha_wheels is None:
+        alpha_wheels = np.zeros(N_R)
 
     # ==================== gravity ===================
     r_norm = np.linalg.norm(p)
@@ -49,16 +54,19 @@ def equations_of_motion(
     dq_dt = 0.5 *( kinematic_matrix @ q)
 
 
-    domega_rw_dt = np.zeros(len(wheel_axes))
+    h_R = np.zeros(3, dtype=float)
+    tau_RW_reaction = np.zeros(3, dtype=float)
 
-    h_wheels = sum(
-        I_RBs[i] @ (omega_rw[i] * wheel_axes[i])
-        for i in range(len(omega_rw))
-    )
+    for i, axis in enumerate(wheel_axes):
+        n_i = axis / np.linalg.norm(axis)
+        h_R += I_R_spin * omega_rw[i] * n_i
+        tau_RW_reaction += I_R_spin * alpha_wheels[i] * n_i
 
-    H = I_S @ omega + h_wheels
-    I = np.linalg.inv(I_inv)
-    domega_dt = I_inv @ (-np.cross(omega, H) + tau_ctrl)
+    H = I_S @ omega + h_R
+    total_torque = tau_ext + tau_RW_reaction - np.cross(omega, H)
+    domega_dt = I_inv @ total_torque
+
+    domega_rw_dt = alpha_wheels
     # ================================================
 
     return np.hstack([v, a_grav, dq_dt, domega_dt, domega_rw_dt])

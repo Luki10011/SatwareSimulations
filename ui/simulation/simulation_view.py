@@ -70,7 +70,7 @@ class SimulationView(QWidget):
                 handle.close()
         except (OSError, ValueError, TypeError):
             show_dark_message_box(
-                self,
+                None,
                 "Load failed",
                 "The selected file could not be read as a simulation configuration.",
                 icon=QMessageBox.Icon.Warning,

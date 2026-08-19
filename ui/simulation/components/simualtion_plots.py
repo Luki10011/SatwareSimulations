@@ -361,7 +361,7 @@ class SimulationPlotsPanel(QWidget):
         self._relayout_canvas()
         self._update_controls_state()
 
-    def update_telemetry(self, history: dict, max_points: int = 2000) -> None:
+    def update_telemetry(self, history: dict, max_points: int = 10000) -> None:
         if not history or "time" not in history:
             return
 

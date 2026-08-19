@@ -242,7 +242,7 @@ class SatelliteControls(QWidget):
 
         if has_mass_error or has_dim_error:
             show_dark_message_box(
-                self,
+                None,
                 "Invalid parameters",
                 "Please correct highlighted fields before calculating inertia.",
                 icon=QMessageBox.Icon.Warning
@@ -369,7 +369,7 @@ class SatelliteControls(QWidget):
         # Odśwież widok 3D tylko, gdy masa i wymiary są poprawne
         if has_mass_error or has_dim_error:
             show_dark_message_box(
-                self,
+                None,
                 "Invalid parameters",
                 "Please correct highlighted fields before calculating inertia.",
                 icon=QMessageBox.Icon.Warning
@@ -381,7 +381,7 @@ class SatelliteControls(QWidget):
         dimensions = self._read_dimensions()
         if dimensions is None:
             show_dark_message_box(
-                self,
+                None,
                 "Invalid parameters",
                 "Dimensions are required and must be valid positive numbers.",
                 icon=QMessageBox.Icon.Warning

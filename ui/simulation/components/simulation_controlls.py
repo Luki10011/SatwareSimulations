@@ -318,7 +318,6 @@ class SimulationControls(QWidget):
                 wheel_axes=wheel_axes_list,
             )
 
-        # Domyślne wartości dla magnetorquerów
         coil_turns = 0
         area = 0.0
         max_current = 0.0
@@ -328,16 +327,13 @@ class SimulationControls(QWidget):
             area = sate_config.electromagnetic.A
             max_current = sate_config.electromagnetic.I_max
 
-        # 3. Przeliczenie jednostek na SI dla solvera RK4
         pos_m = config.initial_position * 1000.0
         vel_ms = config.initial_velocities * 1000.0
         omega_rads = np.radians(config.initial_angular_velocities)
         omega_rw_rads = np.zeros(rw_count)
 
-        # 4. Pobranie kroku czasowego z konfiguracji lub stanu klasy
         dt_val = getattr(config, "dt", self.step_val)
 
-        # Inicjalizacja silnika symulacji
         self.control_panel.engine = SimulationEngine(
             initial_state=SatelliteState(
                 p=pos_m,
@@ -791,7 +787,7 @@ class SimulationControls(QWidget):
         if errors:
             self.mark_errors(errors, replace_all=True)
             show_dark_message_box(
-                self,
+                None,
                 "Invalid simulation configuration",
                 "Please correct the highlighted fields before saving.",
                 icon=QMessageBox.Icon.Warning
@@ -801,7 +797,7 @@ class SimulationControls(QWidget):
         data = self.save_configuration()
         if data is None:
             show_dark_message_box(
-                self,
+                None,
                 "Invalid simulation configuration",
                 "The true anomaly must be valid before saving.",
                 icon=QMessageBox.Icon.Warning
@@ -822,7 +818,7 @@ class SimulationControls(QWidget):
         with open(file_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2)
         show_dark_message_box(
-            self,
+            None,
             "Saved",
             f"Simulation configuration saved to {file_path}",
             icon=QMessageBox.Icon.Information
@@ -834,7 +830,7 @@ class SimulationControls(QWidget):
         orbital_data = payload.get("orbital_data", {})
         if not isinstance(orbital_data, dict) or not orbital_data:
             show_dark_message_box(
-                self,
+                None,
                 "Load failed",
                 "The JSON does not contain a valid orbital_data section.",
                 icon=QMessageBox.Icon.Warning,
@@ -862,7 +858,7 @@ class SimulationControls(QWidget):
             )
         except (TypeError, ValueError):
             show_dark_message_box(
-                self,
+                None,
                 "Load failed",
                 "The orbital_data section contains invalid numeric values.",
                 icon=QMessageBox.Icon.Warning,

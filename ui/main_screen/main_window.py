@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
 
         if self.central_stacked_widget.currentIndex() == 3:
             reply = show_dark_message_box(
-                self,
+                None,
                 "Satellite Configurator",
                 "You are returning to the satellite configurator. Any unsaved changes will be lost.",
                 icon=QMessageBox.Icon.Question,
@@ -147,7 +147,7 @@ class MainWindow(QMainWindow):
                 return
         elif self.central_stacked_widget.currentIndex() == 2:
             reply = show_dark_message_box(
-                self,
+                None,
                 "Orbit Designer",
                 "You are switching to satellite configurator functional module. Any unasved changes will be lost.",
                 icon=QMessageBox.Icon.Question,
@@ -160,7 +160,7 @@ class MainWindow(QMainWindow):
                 return
         elif self.central_stacked_widget.currentIndex() == 4:
             reply = show_dark_message_box(
-                self,
+                None,
                 "Simulation View",
                 "You are switching to satellite configurator functional module. Any unsaved changes will be lost.",
                 icon=QMessageBox.Icon.Question,
@@ -197,7 +197,7 @@ class MainWindow(QMainWindow):
         if self._is_switching:
             return
         reply = show_dark_message_box(
-            self,
+            None,
             "Exit Application",
             "You are exiting the application. Are you sure?",
             icon=QMessageBox.Icon.Question,
@@ -238,7 +238,7 @@ class MainWindow(QMainWindow):
 
         if current_index in [2, 3, 4]:
             reply = show_dark_message_box(
-                self,
+                None,
                 "Returning to Welcome Screen",
                 "You are returning to the welcome screen. Any unsaved changes will be lost.",
                 icon=QMessageBox.Icon.Question,
@@ -258,7 +258,7 @@ class MainWindow(QMainWindow):
 
         if self.central_stacked_widget.currentIndex() == 2:
             reply = show_dark_message_box(
-                self,
+                None,
                 "Orbit Designer",
                 "You are returning to the orbit designer. Any unsaved changes will be lost.",
                 icon=QMessageBox.Icon.Question,
@@ -272,7 +272,7 @@ class MainWindow(QMainWindow):
 
         if self.central_stacked_widget.currentIndex() == 3:
             reply = show_dark_message_box(
-                self,
+                None,
                 "Satellite Configurator",
                 "You are switching to orbit designer functional module. Any unasved changes will be lost.",
                 icon=QMessageBox.Icon.Question,
@@ -286,7 +286,7 @@ class MainWindow(QMainWindow):
 
         if self.central_stacked_widget.currentIndex() == 4:
                     reply = show_dark_message_box(
-                        self,
+                        None,
                         "Simulation View",
                         "You are switching to orbit designer functional module. Any unasved changes will be lost.",
                         icon=QMessageBox.Icon.Question,

@@ -27,7 +27,6 @@ class BdotController:
         if b_norm < 1e-12:
             return np.zeros(3)
 
-        # Pochodna pola B z kinematyki: B_dot = -omega x B
         b_dot = -np.cross(current_omega_mes, current_b_mes)
 
         if configuration == "normal":
@@ -37,11 +36,10 @@ class BdotController:
         else:
             raise ValueError(f"Nieznana konfiguracja B-dot: {configuration}")
 
-        desired_current = desired_dipole / (self.area * self.coil_turns)
+        current_out = desired_dipole / (self.area * self.coil_turns)
 
-        current_out = np.clip(
-            desired_current, -self.max_current, self.max_current
-        )
+        if sum(abs(current_out)) >= self.max_current:
+            current_out =  (current_out/sum(abs(current_out))) * self.max_current
 
         return current_out
 

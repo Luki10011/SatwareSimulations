@@ -18,6 +18,38 @@ class Magnetometer:
         self.noise_std = noise_std_tesla
         self.bias = bias_tesla if bias_tesla is not None else np.zeros(3, dtype=float)
 
+    def get_magnetic_field_in_eci_frame(self,
+        date: str,
+        pos_m: np.ndarray) -> np.ndarray:
+
+        x, y, z = pos_m
+        rho = np.linalg.norm(pos_m)
+        if rho == 0:
+            return np.zeros(3)
+
+        phi_e = 0.0
+        theta_e = np.arccos(z / rho)
+        psi_e = np.arctan2(y, x)
+
+        latitude_deg = 90.0 - np.degrees(theta_e)
+        longitude_deg = np.degrees(psi_e)
+        rho_km = rho / 1000.0
+        h_km = rho_km - 6371.0  # Wysokość nad elipsoidą/powierzchnią Ziemi [km]
+
+        date_dt = datetime.strptime(date, "%Y-%m-%d")
+        Be, Bn, Bu = ppigrf.igrf(longitude_deg, latitude_deg, h_km, date_dt)
+
+        bn = Bn.item()
+        be = Be.item()
+        bd = Bu.item()  # Down = -Up
+
+        b_ned = np.array([bn, be, -bd])
+
+        t_ib = euler_321_to_rotation_matrix(phi_e, theta_e + np.pi, psi_e)
+        b_eci = t_ib @ b_ned
+
+        return b_eci * 1e-9
+
     def get_magnetic_field_in_body_frame(self,
         date: str,
         pos_m: np.ndarray,
@@ -50,7 +82,7 @@ class Magnetometer:
 
         bn = Bn.item()
         be = Be.item()
-        bd = -Bu.item()  # Down = -Up
+        bd = Bu.item()  # Down = -Up
 
         b_ned = np.array([bn, be, -bd])
 

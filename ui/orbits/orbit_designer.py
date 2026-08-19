@@ -395,7 +395,7 @@ class OrbitDesigner(QWidget):
 
         except Exception as e:
             show_dark_message_box(
-                self,
+                None,
                 "Loading Error",
                 f"An error occurred while loading the orbit: {str(e)}",
                 icon=QMessageBox.Icon.Critical
@@ -405,7 +405,7 @@ class OrbitDesigner(QWidget):
         """ Saving the current orbit to a JSON file. """
         if self.orbit is None:
             show_dark_message_box(
-                self,
+                None,
                 "No Orbit",
                 "There is no orbit to save. Please generate an orbit first.",
                 icon=QMessageBox.Icon.Warning
@@ -436,7 +436,7 @@ class OrbitDesigner(QWidget):
                 json.dump(data, file, indent=4, ensure_ascii=False)
 
             show_dark_message_box(
-                self,
+                None,
                 "Orbit Saved",
                 f"The orbit has been successfully saved to:\n{file_path}",
                 icon=QMessageBox.Icon.Information
@@ -444,7 +444,7 @@ class OrbitDesigner(QWidget):
             
         except Exception as e:
             show_dark_message_box(
-                self,
+                None,
                 "Save Error",
                 f"An error occurred while saving the orbit: {str(e)}",
                 icon=QMessageBox.Icon.Critical
@@ -719,7 +719,7 @@ class OrbitDesigner(QWidget):
             
             if not self._validate_field(widget, self.orbital_ranges[name][0], self.orbital_ranges[name][1]):
                 show_dark_message_box(
-                    self,
+                    None,
                     "Input Error",
                     f"{label} must be in the range [{self.orbital_ranges[name][0]:.2f}, {self.orbital_ranges[name][1]:.2f}].",
                     icon=QMessageBox.Icon.Warning
@@ -731,7 +731,7 @@ class OrbitDesigner(QWidget):
                     self.controls.chk_orbit_plane.setChecked(False)
                     self.controls.chk_orbital_elements.setChecked(False)
                     show_dark_message_box(
-                        self,
+                        None,
                         "Input Error",
                         f"Semi-major axis (a) must be greater than minimal value ({self.orbital_ranges['a'][0]:.2f} km)",
                         icon=QMessageBox.Icon.Warning
@@ -744,7 +744,7 @@ class OrbitDesigner(QWidget):
                         self.controls.chk_orbit_plane.setChecked(False)
                         self.controls.chk_orbital_elements.setChecked(False)
                         show_dark_message_box(
-                            self,
+                            None,
                             "Input Error",
                             "Eccentricity (e) must be in the range [0, 1).",
                             icon=QMessageBox.Icon.Warning
@@ -755,7 +755,7 @@ class OrbitDesigner(QWidget):
                         self.controls.chk_orbit_plane.setChecked(False)
                         self.controls.chk_orbital_elements.setChecked(False)
                         show_dark_message_box(
-                            self,
+                            None,
                             "Input Error",
                             f"Perigee distance ({perigee_distance:.2f} km) is below Earth's radius ({self.orbital_ranges['a'][0]:.2f} km).",
                             icon=QMessageBox.Icon.Warning
@@ -776,7 +776,7 @@ class OrbitDesigner(QWidget):
             return value
         except ValueError:
             show_dark_message_box(
-                self,
+                None,
                 "Input Error",
                 f"Please enter a valid numeric value for {parameter}.",
                 icon=QMessageBox.Icon.Warning

@@ -56,5 +56,41 @@ def show_dark_message_box(
     
     # Aplikujemy ciemny pasek przed pokazaniem okna
     apply_dark_title_bar(msg_box)
+    msg_box.setStyleSheet(
+        """
+        QDialog, QMessageBox {
+            background-color: #202020; /* Solidne, ciemne tło zapobiegające przezroczystości */
+            color: #ffffff;
+            font-family: "Segoe UI", sans-serif;
+        }
+
+        /* Wymuszenie białego koloru tekstu dla wszystkich etykiet wewnątrz okien popup */
+        QDialog QLabel, QMessageBox QLabel {
+            color: #ffffff;
+            font-size: 10pt;
+        }
+
+        /* Stylizacja przycisków systemowych (OK, Cancel, Close) wewnątrz dialogów */
+        QDialog QPushButton, QMessageBox QPushButton {
+            min-width: 80px;
+            background-color: rgba(255, 255, 255, 0.06);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 5px 16px;
+            font-size: 9.5pt;
+        }
+
+        QDialog QPushButton:hover, QMessageBox QPushButton:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        QDialog QPushButton:focus, QMessageBox QPushButton:focus {
+            border: 2px solid #4d7aff; /* Niebieska obwódka aktywnego przycisku (np. domyślnego OK) */
+            padding: 4px 15px; /* Kompensacja grubości ramki */
+        }
+        """
+    )
     
     return msg_box.exec()

@@ -1,20 +1,18 @@
 import copy
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from core.physics.control.bdot import BdotController
-from core.physics.dataclasses.satellite_configuration import calculate_axisymmetric_cylinder_inertia_tensor
+from core.physics.control.rw_controller import ReactionWheelsController
+from core.physics.dataclasses.satellite_configuration import (
+    calculate_axisymmetric_cylinder_inertia_tensor,
+)
 from core.physics.dataclasses.satellite_state import SatelliteState
 from core.physics.dataclasses.simulation_state import SimulationState
 from core.physics.sensors.gyroscope import Gyroscope
 from core.physics.sensors.magnetometer import Magnetometer
 from core.physics.solver.solver import equations_of_motion, rk4_step
 from utils.transformations import quaternion_to_euler
-
-
-import copy
-from typing import Dict, List, Optional
-import numpy as np
 
 
 class SimulationEngine:
@@ -28,34 +26,43 @@ class SimulationEngine:
         I_total: np.ndarray,
         rw_max_speed: float,
         dt: float = 0.1,
-        sim_date: str = "2020-01-01",
-        k_gain : float = 120,
-        area : float = 0.3,
-        max_current : float = 0.5,
-        coil_turns : int = 0,
-        dt_mag: float = 1,        
-        dt_gyro: float = 1,       
-        dt_control: float = 0.8,    
+        sim_date: str = "2026-01-01",
+        k_gain: float = 7200,
+        area: float = 0.3,
+        max_current: float = 0.5,
+        coil_turns: int = 0,
+        dt_mag: float = 1.0,
+        dt_gyro: float = 1.0,
+        dt_control: float = 0.1,
+        kp_rw: float =  0.003333,
+        kd_rw: float = 45* 0.003333,
+        aligned_axes: bool = False,
     ):
         self.initial_satellite_state = copy.deepcopy(initial_state)
         self.dt = dt
         self.sim_date = sim_date
 
-        # Częstotliwości/interwały aktualizacji
         self.dt_mag = dt_mag
         self.dt_gyro = dt_gyro
         self.dt_control = dt_control
 
-        # Tensor i macierze bezwładności
         self.I_S = np.array(I_S, dtype=float)
         self.I_R = np.array(I_R, dtype=float)
         self.I_total = np.array(I_total, dtype=float)
-        self.I_inv = np.linalg.inv(self.I_S)
+        self.I_inv = np.linalg.inv(self.I_total)
 
         self.wheel_axes = wheel_axes
         self.rw_max_speed = rw_max_speed
 
-        # Transformacja tensora bezwładności dla każdego koła
+        # Pobranie momentu bezwładności koła wokół osi obrotu Z_R
+        self.I_R_spin = float(self.I_R[2, 2]) if self.I_R.ndim == 2 else float(self.I_R)
+
+        # ADCS state
+        self.adcs_mode: str = "IDLE"
+        self.detumble_algorithm: str = "normal"
+        self.target_angles: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+        self.mode_summary: str = "Mode: IDLE"
+
         self.I_RBS = []
         for axis in self.wheel_axes:
             i_ri_b = calculate_axisymmetric_cylinder_inertia_tensor(
@@ -70,17 +77,30 @@ class SimulationEngine:
             coil_turns=coil_turns,
             area=area,
             max_current=max_current,
-            k_gain=k_gain
+            k_gain=k_gain,
         )
 
-        # Stan wewnętrzny i bufory
+        # Kontroler kół reakcyjnych
+        self.rw_controller = ReactionWheelsController(
+            wheel_axes=self.wheel_axes,
+            I_R_spin=self.I_R_spin,
+            kp=kp_rw,
+            kd=kd_rw,
+            aligned_axes=aligned_axes,
+            I_total=self.I_total,
+            max_speed=self.rw_max_speed
+        )
+
         self.sim_state: Optional[SimulationState] = None
         self.history: Dict[str, List[float]] = {}
 
-        # Zmienne przechowywania najnowszych odczytów z czujników
         self.current_b_body = np.zeros(3, dtype=float)
         self.current_euler_angles = np.zeros(3, dtype=float)
         self.current_omega = np.zeros(3, dtype=float)
+
+        self.alpha_wheels = np.zeros(len(self.wheel_axes), dtype=float)
+        self.current_tau_ctrl = np.zeros(3, dtype=float)
+        self.i_ctrl = np.zeros(3, dtype=float)
 
         self.next_mag_update = 0.0
         self.next_gyro_update = 0.0
@@ -88,46 +108,90 @@ class SimulationEngine:
 
         self.reset()
 
+    def set_adcs_mode(
+        self,
+        mode: str,
+        detumble_algorithm: str = "normal",
+        target_angles: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+        k_gain: Optional[float] = None,
+        kp_rw: Optional[float] = None,
+        kd_rw: Optional[float] = None,
+    ) -> str:
+        self.adcs_mode = mode
+        self.detumble_algorithm = detumble_algorithm
+        self.target_angles = target_angles
+
+        if k_gain is not None:
+            self.bdot_controller.k_gain = k_gain
+
+        if kp_rw is not None and kd_rw is not None:
+            self.rw_controller.set_gains(kp=kp_rw, kd=kd_rw)
+
+        if self.adcs_mode == "DETUMBLE":
+            algo_name = "Adaptive B-Dot" if self.detumble_algorithm == "adaptive" else "Normal B-Dot"
+            self.mode_summary = f"Mode: DETUMBLE | Algo: {algo_name} | Gain k: {self.bdot_controller.k_gain:.1f}"
+        elif self.adcs_mode == "POINTING":
+            r, p, y = self.target_angles
+            self.mode_summary = f"Mode: POINTING | Target: Roll={r:.1f}°, Pitch={p:.1f}°, Yaw={y:.1f}°"
+        else:
+            self.mode_summary = "Mode: IDLE | ADCS active control disabled"
+
+        return self.mode_summary
+
     def _update_sensors(self) -> None:
-        """Dyskretna aktualizacja odczytów czujników."""
         t_curr = self.sim_state.t
         sat = self.sim_state.satellite
 
         if t_curr >= self.next_mag_update:
             self.current_b_body = self.magnetometer.read(
-                date=self.sim_date,
-                pos_m=sat.p,
-                q=sat.q
+                date=self.sim_date, pos_m=sat.p, q=sat.q
             )
             self.next_mag_update += self.dt_mag
 
         if t_curr >= self.next_gyro_update:
             self.current_euler_angles, self.current_omega = self.gyroscope.read(
-                q=sat.q,
-                omega=sat.omega
+                q=sat.q, omega=sat.omega
             )
             self.next_gyro_update += self.dt_gyro
 
-        # if t_curr >= self.next_control_update:
-        self.i_ctrl = self.bdot_controller.get_control_current(
-            current_omega_mes=self.current_omega,
-            current_b_mes=self.current_b_body,
-            configuration="adaptive"
-        )
+        if t_curr >= self.next_control_update:
+            if self.adcs_mode == "DETUMBLE":
+                self.alpha_wheels = np.zeros(len(self.wheel_axes))
+                self.i_ctrl = self.bdot_controller.get_control_current(
+                    current_omega_mes=self.current_omega,
+                    current_b_mes=self.current_b_body,
+                    configuration=self.detumble_algorithm,
+                )
+                self.current_tau_ctrl = self.bdot_controller.get_torque(
+                    current_applied=self.i_ctrl,
+                    current_b_mes=self.current_b_body,
+                )
 
-        self.current_tau_ctrl = self.bdot_controller.get_torque(
-            current_applied=self.i_ctrl, 
-            current_b_mes=self.current_b_body
-        )
+            elif self.adcs_mode == "POINTING":
+                self.i_ctrl = np.zeros(3)
 
-        # self.next_control_update += self.dt_control
+                # Konwersja kątów z UI (stopnie) na radiany
+                target_euler_rad = np.radians(self.target_angles)
+                current_euler_rad = np.radians(self.current_euler_angles)
+
+                # Obliczenie przyspieszeń kół i pożądanego momentu
+                self.alpha_wheels, self.current_tau_ctrl = self.rw_controller.compute_control(
+                    current_euler_rad=current_euler_rad,
+                    target_euler_rad=target_euler_rad,
+                    current_omega=self.current_omega,
+                    current_omega_rw=self.sim_state.satellite.omega_rw
+                )
+
+            else:  # IDLE
+                self.i_ctrl = np.zeros(3)
+                self.alpha_wheels = np.zeros(len(self.wheel_axes))
+                self.current_tau_ctrl = np.zeros(3)
+
+            self.next_control_update += self.dt_control
 
     def step(self) -> SatelliteState:
-        """Wykonuje krok symulacji oraz całowania RK4."""
-        # 1. Odświeżenie pomiarów z czujników przed krokiem fizyki
         self._update_sensors()
 
-        # 2. Wykonanie kroku integracji RK4
         y_curr = self.sim_state.satellite.to_vector()
         y_next = rk4_step(
             equations_of_motion,
@@ -136,12 +200,12 @@ class SimulationEngine:
             self.sim_state.dt,
             self.I_inv,
             self.I_S,
-            self.I_RBS,
             self.wheel_axes,
-            self.current_tau_ctrl
+            self.current_tau_ctrl,
+            self.alpha_wheels,
+            self.I_R_spin,
         )
 
-        # 3. Aktualizacja stanu i czasu
         self.sim_state.satellite = SatelliteState.from_vector(y_next)
         self.sim_state.t += self.sim_state.dt
         self.sim_state.step_count += 1
@@ -150,7 +214,7 @@ class SimulationEngine:
         return self.sim_state.satellite
 
     def reset(self) -> SatelliteState:
-        """Resetuje stan symulacji do t = 0.0 s."""
+        """Resetuje stan symulacji do t = 0.0 s oraz czyści stan regulatorów."""
         self.sim_state = SimulationState(
             t=0.0,
             step_count=0,
@@ -174,22 +238,48 @@ class SimulationEngine:
         self.i_ctrl = np.zeros(3, dtype=float)
         self.current_tau_ctrl = np.zeros(3, dtype=float)
 
+        # Reset stanu ADCS
+        self.adcs_mode = "IDLE"
+        self.detumble_algorithm = "normal"
+        self.target_angles = (0.0, 0.0, 0.0)
+
         self.history = {
             "time": [],
             # --- Pozycja i prędkość ---
-            "pos_x": [], "pos_y": [], "pos_z": [],
-            "vel_x": [], "vel_y": [], "vel_z": [],
+            "pos_x": [],
+            "pos_y": [],
+            "pos_z": [],
+            "vel_x": [],
+            "vel_y": [],
+            "vel_z": [],
             # --- True State ---
-            "roll": [], "pitch": [], "yaw": [],
-            "omega_x": [], "omega_y": [], "omega_z": [],
-            "q0": [], "q1": [], "q2": [], "q3": [],
+            "roll": [],
+            "pitch": [],
+            "yaw": [],
+            "omega_x": [],
+            "omega_y": [],
+            "omega_z": [],
+            "q0": [],
+            "q1": [],
+            "q2": [],
+            "q3": [],
             # --- Odczyty czujników ---
-            "b_body_x": [], "b_body_y": [], "b_body_z": [],
-            "meas_roll": [], "meas_pitch": [], "meas_yaw": [],
-            "meas_omega_x": [], "meas_omega_y": [], "meas_omega_z": [],
-            # --- Sygnały sterujące (NOWE) ---
-            "i_ctrl_x": [], "i_ctrl_y": [], "i_ctrl_z": [],
-            "tau_ctrl_x": [], "tau_ctrl_y": [], "tau_ctrl_z": [],
+            "b_body_x": [],
+            "b_body_y": [],
+            "b_body_z": [],
+            "meas_roll": [],
+            "meas_pitch": [],
+            "meas_yaw": [],
+            "meas_omega_x": [],
+            "meas_omega_y": [],
+            "meas_omega_z": [],
+            # --- Sygnały sterujące ---
+            "i_ctrl_x": [],
+            "i_ctrl_y": [],
+            "i_ctrl_z": [],
+            "tau_ctrl_x": [],
+            "tau_ctrl_y": [],
+            "tau_ctrl_z": [],
         }
 
         self._record_telemetry()

@@ -85,7 +85,7 @@ class SatelliteConfigurator(QWidget):
         if errors:
             self.satellite_controls.mark_errors(errors)
             show_dark_message_box(
-                self,
+                None,
                 "Invalid configuration",
                 "\n".join(errors.values() if isinstance(errors, dict) else errors),
                 icon=QMessageBox.Icon.Warning
@@ -106,7 +106,7 @@ class SatelliteConfigurator(QWidget):
             json.dump(serialize_satellite_configuration(config), handle, indent=2)
 
         show_dark_message_box(
-            self,
+            None,
             "Saved",
             f"Configuration saved to {file_path}",
             icon=QMessageBox.Icon.Information
@@ -121,7 +121,7 @@ class SatelliteConfigurator(QWidget):
                 data = json.load(handle)
         except (OSError, ValueError, TypeError) as e:
             show_dark_message_box(
-                self,
+                None,
                 "Error Reading File",
                 f"Failed to read file: {str(e)}",
                 icon=QMessageBox.Icon.Critical
@@ -132,7 +132,7 @@ class SatelliteConfigurator(QWidget):
         if errors:
             self.satellite_controls.mark_errors(errors)
             show_dark_message_box(
-                self,
+                None,
                 "Invalid configuration",
                 "\n".join(errors.values() if isinstance(errors, dict) else errors),
                 icon=QMessageBox.Icon.Warning

@@ -254,7 +254,7 @@ class SimulationDialog(QDialog):
         errors = validate_satellite_configuration_data(data)
         if errors:
             show_dark_message_box(
-                self,
+                None,
                 "Invalid configuration",
                 "Loaded configuration is invalid:\n" + "\n".join(errors.values() if isinstance(errors, dict) else errors),
                 icon=QMessageBox.Icon.Warning
@@ -263,7 +263,7 @@ class SimulationDialog(QDialog):
         else:
             self.selected_satellite = build_satellite_configuration(data)
             show_dark_message_box(
-                self,
+                None,
                 "Loaded",
                 f"Configuration loaded from {file_path}",
                 icon=QMessageBox.Icon.Information
@@ -280,7 +280,7 @@ class SimulationDialog(QDialog):
                 self.selected_orbit = self.build_orbit_configuration(elements)
 
                 show_dark_message_box(
-                    self,
+                    None,
                     "Loaded",
                     f"Predefined configuration has been successfully loaded.",
                     icon=QMessageBox.Icon.Information
@@ -308,7 +308,7 @@ class SimulationDialog(QDialog):
         errors = self.validate_orbit_configuration_data(data)
         if errors:
             show_dark_message_box(
-                self,
+                None,
                 "Invalid configuration",
                 "Loaded configuration is invalid:\n" + "\n".join(errors),
                 icon=QMessageBox.Icon.Warning
@@ -317,7 +317,7 @@ class SimulationDialog(QDialog):
         else:
             self.selected_orbit = self.build_orbit_configuration(data)
             show_dark_message_box(
-                self,
+                None,
                 "Loaded",
                 f"Configuration loaded from {file_path}",
                 icon=QMessageBox.Icon.Information
