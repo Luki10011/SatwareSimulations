@@ -58,7 +58,8 @@ class SimulationControlPanel(QWidget):
         main_layout.addWidget(info_label)
 
         main_layout.addWidget(self._create_execution_group())
-        main_layout.addWidget(self._create_adcs_group())
+        main_layout.addWidget(self._create_bdot_group())
+        main_layout.addWidget(self._create_orientation_control_group())
         main_layout.addWidget(self._create_overlays_group())
         main_layout.addStretch()
 
@@ -115,8 +116,8 @@ class SimulationControlPanel(QWidget):
 
         return group
 
-    def _create_adcs_group(self) -> QGroupBox:
-        group = QGroupBox("ADCS & Attitude Control")
+    def _create_bdot_group(self) -> QGroupBox:
+        group = QGroupBox("Bdot Detumbling")
         layout = QVBoxLayout(group)
         layout.setSpacing(10)
 
@@ -147,8 +148,40 @@ class SimulationControlPanel(QWidget):
         layout.addWidget(self.btn_start_detumble)
 
         # 2. Kontrola Orientacji (Pola Roll, Pitch, Yaw)
-        pointing_group_layout = QVBoxLayout()
+        
+        return group
 
+    def _create_orientation_control_group(self):
+
+        group = QGroupBox("Reaction Wheels Control")
+        layout = QVBoxLayout(group)
+        layout.setSpacing(10)
+
+        gains_group_layout = QHBoxLayout()
+        grid_kpkd = QGridLayout()
+        validator = QDoubleValidator(0, 100000.0, 6, self)
+        validator.setLocale(self.us_locale)
+        validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+
+        self.txt_kp = QLineEdit("0.000000")
+        self.txt_kd = QLineEdit("0.000000")
+
+        fields = [
+            ("Kp:", self.txt_kp),
+            ("Kd:", self.txt_kd)
+        ]
+
+        for col, (label_text, field) in enumerate(fields):
+            field.setValidator(validator)
+            field.setEnabled(False)  # Zablokowane do czasu zakończenia detumblingu
+            field.textChanged.connect(self._validate_gains_input)
+
+            lbl = QLabel(label_text)
+            grid_kpkd.addWidget(lbl, 0, col * 2)
+            grid_kpkd.addWidget(field, 0, col * 2 + 1)
+
+        pointing_group_layout = QVBoxLayout()
+        
         grid_rpy = QGridLayout()
         grid_rpy.setHorizontalSpacing(6)
 
@@ -180,6 +213,7 @@ class SimulationControlPanel(QWidget):
         self.btn_apply_pointing.setEnabled(False)
         self.btn_apply_pointing.clicked.connect(self._on_apply_pointing_clicked)
 
+        pointing_group_layout.addLayout(grid_kpkd)
         pointing_group_layout.addLayout(grid_rpy)
         pointing_group_layout.addWidget(self.btn_apply_pointing)
         layout.addLayout(pointing_group_layout)
@@ -195,6 +229,7 @@ class SimulationControlPanel(QWidget):
         layout.addLayout(status_form)
 
         return group
+        
 
     def _create_overlays_group(self) -> QGroupBox:
         group = QGroupBox("3D Overlays & Vectors")
@@ -202,27 +237,12 @@ class SimulationControlPanel(QWidget):
         layout.setSpacing(8)
 
         self.chk_body_axes = QCheckBox("Show Satellite Body Axes (X, Y, Z)")
-        self.chk_mag_vector = QCheckBox("Show Magnetic Dipole Vector (μ)")
-        self.chk_rw_torque = QCheckBox("Show Reaction Wheels Net Torque (τ)")
-        self.chk_orbit_trace = QCheckBox("Show Orbit Trajectory Trace")
 
         self.chk_body_axes.toggled.connect(
             lambda chk: self.overlay_toggled.emit("body_axes", chk)
         )
-        self.chk_mag_vector.toggled.connect(
-            lambda chk: self.overlay_toggled.emit("magnetic_vector", chk)
-        )
-        self.chk_rw_torque.toggled.connect(
-            lambda chk: self.overlay_toggled.emit("rw_torque", chk)
-        )
-        self.chk_orbit_trace.toggled.connect(
-            lambda chk: self.overlay_toggled.emit("orbit_trace", chk)
-        )
 
         layout.addWidget(self.chk_body_axes)
-        layout.addWidget(self.chk_mag_vector)
-        layout.addWidget(self.chk_rw_torque)
-        layout.addWidget(self.chk_orbit_trace)
 
         return group
 
@@ -245,6 +265,25 @@ class SimulationControlPanel(QWidget):
         self.btn_apply_pointing.setEnabled(can_enable)
         return is_valid
 
+    def _validate_gains_input(self) -> bool:
+        is_valid = True
+        for field in [self.txt_kd, self.txt_kp]:
+            text = field.text().replace(",", ".")
+            try:
+                val = float(text)
+                if not (0 <= val <= 100000):
+                    is_valid = False
+                    break
+            except ValueError:
+                is_valid = False
+                break
+
+        # Przycisk aktywujemy tylko, gdy detumbling się zakończył ORAZ wpisy są poprawne
+        can_enable = self.detumble_completed and is_valid
+        self.btn_apply_pointing.setEnabled(can_enable)
+        return is_valid
+    
+
     def _on_start_detumble_clicked(self) -> None:
         try:
             k_gain = float(self.txt_k_gain.text().replace(",", "."))
@@ -259,7 +298,7 @@ class SimulationControlPanel(QWidget):
         self.btn_start_detumble.setEnabled(False)
 
         # Blokada wejść orientacji na czas detumblingu
-        for field in [self.txt_roll, self.txt_pitch, self.txt_yaw]:
+        for field in [self.txt_roll, self.txt_pitch, self.txt_yaw, self.txt_kp, self.txt_kd]:
             field.setEnabled(False)
         self.btn_apply_pointing.setEnabled(False)
 
@@ -289,9 +328,10 @@ class SimulationControlPanel(QWidget):
         self.txt_k_gain.setEnabled(True)
         self.btn_start_detumble.setEnabled(True)
 
-        for field in [self.txt_roll, self.txt_pitch, self.txt_yaw]:
+        for field in [self.txt_roll, self.txt_pitch, self.txt_yaw, self.txt_kd, self.txt_kp]:
             field.setText("0.0")
             field.setEnabled(False)
+
         self.btn_apply_pointing.setEnabled(False)
 
         self.txt_adcs_status.setText("IDLE / Tumbling")
@@ -304,15 +344,20 @@ class SimulationControlPanel(QWidget):
             self.lbl_sim_time.setText(f"{self.engine.sim_state.t:.2f} s")
             self.state_updated.emit(initial_state)
         self.speed_multiplier = 1
+        self.slider_speed.setValue(self.speed_multiplier)
+        self.chk_body_axes.setChecked(False)
         self.reset_requested.emit()
 
     def _on_apply_pointing_clicked(self) -> None:
-        if not self._validate_pointing_inputs():
+        if not self._validate_pointing_inputs() or not self._validate_gains_input():
             return
 
         roll = float(self.txt_roll.text().replace(",", "."))
         pitch = float(self.txt_pitch.text().replace(",", "."))
         yaw = float(self.txt_yaw.text().replace(",", "."))
+        kp = float(self.txt_kp.text().replace(",", "."))
+        kd = float(self.txt_kd.text().replace(",", "."))
+
 
         self.txt_adcs_status.setText(
             f"Pointing at Roll: {roll:.1f}°, Pitch: {pitch:.1f}°, Yaw: {yaw:.1f}°"
@@ -325,6 +370,8 @@ class SimulationControlPanel(QWidget):
             self.engine.set_adcs_mode(
                 "POINTING", target_angles=(roll, pitch, yaw)
             )
+            self.engine.rw_controller.kp = kp
+            self.engine.rw_controller.kd = kd
 
     def _check_detumble_condition(self, state) -> None:
         if not self.is_detumbling or self.detumble_completed:
@@ -338,9 +385,10 @@ class SimulationControlPanel(QWidget):
             self.detumble_completed = True
 
             # Odblokowanie pól edycji orientacji i walidacja
-            for field in [self.txt_roll, self.txt_pitch, self.txt_yaw]:
+            for field in [self.txt_roll, self.txt_pitch, self.txt_yaw, self.txt_kp, self.txt_kd]:
                 field.setEnabled(True)
             self._validate_pointing_inputs()
+            self._validate_gains_input()
 
             self.txt_adcs_status.setText(
                 "Detumbling finished, entering payload mode"

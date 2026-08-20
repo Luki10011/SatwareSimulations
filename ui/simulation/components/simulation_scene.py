@@ -30,10 +30,6 @@ class SimulationScene(QWidget):
         self.current_ecef_rotation = self.initial_gmst
         self._axis_items = []
 
-        self.MAX_TRACE_POINTS = 5000
-
-        self.orbit_trace = deque(maxlen=self.MAX_TRACE_POINTS)
-        self.orbit_line = None
 
         self.setup_view()
 
@@ -93,7 +89,7 @@ class SimulationScene(QWidget):
         
         self.view.update()
 
-    def _draw_rgb_body_axes(self, length: float = 2.0, width: float = 4.0) -> None:
+    def _draw_rgb_body_axes(self, length: float = 1.5, width: float = 4.0) -> None:
         """Rysuje osie lokalnego układu ciała."""
 
         axes_data = [
@@ -287,8 +283,6 @@ class SimulationScene(QWidget):
         if not self._axis_items:
             self._draw_rgb_body_axes()
 
-        self.add_orbit_trace_point(position_km)
-
         x, y, z = position_km
         roll, pitch, yaw = euler_deg
 
@@ -312,47 +306,6 @@ class SimulationScene(QWidget):
             self.view.setCameraPosition(pos=target_pos)
             self.view.update()
 
-    def add_orbit_trace_point(self, position_km):
-        
-        self.orbit_trace.append(np.asarray(position_km))
-        pos_realtive_to_center = [pos - position_km for pos in self.orbit_trace]
-        if self.orbit_line is not None:
-            self.orbit_line.setData(
-                pos=np.asarray(pos_realtive_to_center, dtype=np.float32)
-            )
-
-    def mark_orbit_trace(self, is_visible: bool):
-        if not self.view:
-            return
-
-        if is_visible:
-
-            if self.orbit_line is None:
-                self.orbit_line = gl.GLLinePlotItem(
-                    pos=np.asarray([0,0,0]),
-                    color=(1.0, 0.5, 0.0, 1.0),
-                    width=2,
-                    mode="line_strip",
-                    glOptions="opaque"
-                )
-                self.view.addItem(self.orbit_line)
-
-            # else:
-            #     pts = np.asarray(self.orbit_trace, dtype=np.float32)
-
-            #     self.orbit_line.setData(pos=pts)
-            #     self.orbit_line.show()
-                
-
-        elif self.orbit_line is not None:
-            self.orbit_line.hide()
-
-    def show_magnetic_vector(self, is_visible):
-        pass
-
-    def show_net_torque(self, is_visible):
-        pass
-    
     def _clear_satellite(self) -> None:
         for item in self.satellite_items:
             self.view.removeItem(item)

@@ -51,6 +51,8 @@ class SimulationView(QWidget):
         self.scene_panel_container._clear_satellite()
         self.current_ecef_rotation = self.initial_gmst
         self.scene_panel_container._ensure_ECEF_orientation(self.current_ecef_rotation)
+        self.scene_panel_container.show_body_frame(False)
+        self.controls_panel_container.show_body_frame = False
 
     def load_simulation_from_file(self, file_path : str) -> None:
         """Load a saved SimulationConfiguration JSON back into the editor."""
@@ -159,21 +161,9 @@ class SimulationView(QWidget):
 
     
     def update_scene(self):
-        self.scene_panel_container.mark_orbit_trace(
-            self.controls_panel_container.show_orbit_trace
-            )
 
         self.scene_panel_container.show_body_frame(
             self.controls_panel_container.show_body_frame
-        )
-
-        
-        self.scene_panel_container.show_magnetic_vector(
-            self.controls_panel_container.show_magnetic_vector
-        )
-
-        self.scene_panel_container.show_net_torque(
-            self.controls_panel_container.show_rw_net_torque
         )
 
     def _update_plots_callback(self):

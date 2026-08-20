@@ -274,12 +274,6 @@ class SimulationControls(QWidget):
         match case:
             case "body_axes":
                 self.show_body_frame = checked
-            case "magnetic_vector":
-                self.show_magnetic_vector = checked
-            case "rw_torque":
-                self.show_rw_net_torque = checked
-            case "orbit_trace":
-                self.show_orbit_trace = checked
         self.scence_changed.emit()
 
     def _start_simulation(self) -> None:

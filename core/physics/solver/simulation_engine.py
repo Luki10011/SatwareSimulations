@@ -4,6 +4,7 @@ import numpy as np
 
 from core.physics.control.bdot import BdotController
 from core.physics.control.rw_controller import ReactionWheelsController
+from core.physics.control.slerp_trajectory import SlerpTrajectoryGenerator
 from core.physics.dataclasses.satellite_configuration import (
     calculate_axisymmetric_cylinder_inertia_tensor,
 )
@@ -31,9 +32,9 @@ class SimulationEngine:
         area: float = 0.3,
         max_current: float = 0.5,
         coil_turns: int = 0,
-        dt_mag: float = 1.0,
-        dt_gyro: float = 1.0,
-        dt_control: float = 0.1,
+        dt_mag: float = 0.4,
+        dt_gyro: float = 0.4,
+        dt_control: float = 0.01,
         kp_rw: float =  0.003333,
         kd_rw: float = 45* 0.003333,
         aligned_axes: bool = False,
@@ -53,6 +54,9 @@ class SimulationEngine:
 
         self.wheel_axes = wheel_axes
         self.rw_max_speed = rw_max_speed
+
+        self.kd = kd_rw
+        self.kp = kp_rw
 
         # Pobranie momentu bezwładności koła wokół osi obrotu Z_R
         self.I_R_spin = float(self.I_R[2, 2]) if self.I_R.ndim == 2 else float(self.I_R)
@@ -90,6 +94,13 @@ class SimulationEngine:
             I_total=self.I_total,
             max_speed=self.rw_max_speed
         )
+
+        self.slerp_gen = SlerpTrajectoryGenerator(
+            max_slew_rate_deg_s=2.0
+        )  # Domyślnie 2 deg/s
+        self.last_target_angles: Optional[List[float]] = None
+        self.last_adcs_mode: str = self.adcs_mode
+        
 
         self.sim_state: Optional[SimulationState] = None
         self.history: Dict[str, List[float]] = {}
@@ -172,22 +183,57 @@ class SimulationEngine:
             elif self.adcs_mode == "POINTING":
                 self.i_ctrl = np.zeros(3)
 
-                # Konwersja kątów z UI (stopnie) na radiany
-                target_quat = euler_to_quaternion(
-                    *self.current_euler_angles,
-                    degrees=True
-                    )
-                current_quat = euler_to_quaternion(
+                current_quat = np.asarray(
+                    self.sim_state.satellite.q,
+                    dtype=float,
+                ).copy()
+
+                current_quat /= np.linalg.norm(current_quat)
+
+                final_target_quat = euler_to_quaternion(
                     *self.target_angles,
-                    degrees=True
+                    degrees=True,
                 )
 
-                # Obliczenie przyspieszeń kół i pożądanego momentu
-                self.alpha_wheels, self.current_tau_ctrl = self.rw_controller.compute_control(
-                    current_quat=current_quat,
-                    target_quat=target_quat,
-                    current_omega=self.current_omega,
-                    current_omega_rw=self.sim_state.satellite.omega_rw
+                final_target_quat = np.asarray(
+                    final_target_quat,
+                    dtype=float,
+                )
+
+                final_target_quat /= np.linalg.norm(
+                    final_target_quat
+                )
+
+                current_target_list = list(
+                    self.target_angles
+                )
+
+                if (
+                    self.last_target_angles is None
+                    or self.last_target_angles != current_target_list
+                ):
+                    self.slerp_gen.set_new_target(
+                        q_current=current_quat,
+                        q_target=final_target_quat,
+                        t_curr=self.sim_state.t,
+                    )
+
+                    self.last_target_angles = current_target_list
+
+                cmd_quat, cmd_omega = (
+                    self.slerp_gen.get_command(
+                        self.sim_state.t
+                    )
+                )
+
+                self.alpha_wheels, self.current_tau_ctrl = (
+                    self.rw_controller.compute_control(
+                        current_quat=current_quat,
+                        target_quat=cmd_quat,
+                        current_omega=self.current_omega,
+                        current_omega_rw=self.sim_state.satellite.omega_rw,
+                        target_omega=cmd_omega,
+                    )
                 )
 
             else:  # IDLE

@@ -12,7 +12,7 @@ class ReactionWheelsController:
         I_total: np.ndarray,
         kp: float = 0.07,
         kd: float = 1.5,
-        max_alpha: float = 15.0,  # [rad/s^2] maxAlpha
+        max_alpha: float = 3.0,  # [rad/s^2] maxAlpha
         max_speed: float = 600.0,  # [rad/s] maxSpeed (~5700 RPM)
         aligned_axes: bool = False,
     ):
@@ -61,29 +61,26 @@ class ReactionWheelsController:
         max_angle_error_rad : float = 0.35
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Wyznacza przyspieszenia kół (w123dot) oraz moment wywierany na kadłub (LMN_RWs)."""
-        # 1. Pożądany moment z regulatora PD
-        # e_angle = (
-        #     current_euler_rad - target_euler_rad 
-        # ) 
-        # e_omega = current_omega - target_omega
 
         q_curr_inv = np.array(
             [current_quat[0], -current_quat[1], -current_quat[2], -current_quat[3]]
         )
-
-        q_err = quaternion_multiply(q_curr_inv, target_quat)
+        q_err = quaternion_multiply(target_quat, q_curr_inv)
 
         if q_err[0] < 0:
             q_err = -q_err
 
         e_angle = 2.0 * q_err[1:4]
+
+        # Ograniczenie amplitudy błędu (Slew rate limit)
         e_norm = np.linalg.norm(e_angle)
         if e_norm > max_angle_error_rad:
-            e_angle = e_angle * (max_angle_error_rad/e_norm)
+            e_angle = e_angle * (max_angle_error_rad / e_norm)
 
         e_omega = current_omega - target_omega
-        
-        alpha_desired_body = -self.kp * e_angle - self.kd * e_omega
+
+        # Dodatnie kp dla e_angle, ujemne kd dla tłumienia prędkości kątowej
+        alpha_desired_body = self.kp * e_angle - self.kd * e_omega
         M_desired = self.I_total @ alpha_desired_body
 
         # 2. Wyznaczenie wstępnych przyspieszeń kół (rwalphas)
@@ -94,7 +91,7 @@ class ReactionWheelsController:
 
         for i in range(self.N_R):
             if (
-                abs(current_omega_rw[i]) >= self.max_speed and np.sign(w123dot[i]) == np.sign(current_omega_rw)
+                abs(current_omega_rw[i]) >= self.max_speed and np.sign(w123dot[i]) == np.sign(current_omega_rw[i])
             ):
                 w123dot[i] = 0.0
 
