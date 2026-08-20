@@ -14,8 +14,8 @@ from PyQt6.QtGui import QMatrix4x4, QVector3D
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
 from ui.orbits.components.orbit_scene import OrbitSceneHelper
-from utils.rotations import datetime_to_julian_date, get_initial_gmst
-
+from utils.rotations import datetime_to_julian_date, euler_321_to_rotation_matrix, get_initial_gmst
+from collections import deque
 
 class SimulationScene(QWidget):
     def __init__(self, parent=None):
@@ -28,6 +28,12 @@ class SimulationScene(QWidget):
         
         self.initial_gmst = get_initial_gmst(current_jd)
         self.current_ecef_rotation = self.initial_gmst
+        self._axis_items = []
+
+        self.MAX_TRACE_POINTS = 5000
+
+        self.orbit_trace = deque(maxlen=self.MAX_TRACE_POINTS)
+        self.orbit_line = None
 
         self.setup_view()
 
@@ -86,6 +92,32 @@ class SimulationScene(QWidget):
                 label.rotate(angle_deg, 0, 0, 1)
         
         self.view.update()
+
+    def _draw_rgb_body_axes(self, length: float = 2.0, width: float = 4.0) -> None:
+        """Rysuje osie lokalnego układu ciała."""
+
+        axes_data = [
+            ([0, 0, 0], [length, 0, 0], (1.0, 0.2, 0.2, 1.0)),
+            ([0, 0, 0], [0, length, 0], (0.2, 0.9, 0.2, 1.0)),
+            ([0, 0, 0], [0, 0, length], (100/255, 100/255, 255/255, 1.0)),
+        ]
+
+        for start, end, color in axes_data:
+            line = gl.GLLinePlotItem(
+                pos=np.array([start, end], dtype=np.float32),
+                color=color,
+                width=width,
+                glOptions="opaque",
+            )
+            line.setVisible(False)
+            self.view.addItem(line)
+            self._axis_items.append(line)
+
+
+    def show_body_frame(self, is_visible : bool):
+        if self._axis_items:
+            for item in self._axis_items:
+                item.setVisible(is_visible)
         
     def _create_box_mesh(
         self,
@@ -245,32 +277,82 @@ class SimulationScene(QWidget):
     def update_satellite_state(
         self,
         position_km: tuple[float, float, float] | np.ndarray,
-        euler_deg: tuple[float, float, float] | np.ndarray,
+        euler_deg:tuple[float, float, float],
         track_camera: bool = True,
     ) -> None:
-        """Aktualizuje pozycję i orientacje satelity w ukladzie ECI oraz centruje na nim kamere."""
+
         if not self.satellite_items:
             return
+
+        if not self._axis_items:
+            self._draw_rgb_body_axes()
+
+        self.add_orbit_trace_point(position_km)
 
         x, y, z = position_km
         roll, pitch, yaw = euler_deg
 
-        # Macierz transformacji składająca orientację lokalną i pozycję ECI
         transform = QMatrix4x4()
         transform.translate(float(x), float(y), float(z))
-        transform.rotate(float(yaw), 0, 0, 1)    # Obrót wokół Z (Yaw)
-        transform.rotate(float(pitch), 0, 1, 0)  # Obrót wokół Y (Pitch)
-        transform.rotate(float(roll), 1, 0, 0)   # Obrót wokół X (Roll)
 
+        transform.rotate(float(yaw),   0, 0, 1)
+        transform.rotate(float(pitch), 0, 1, 0)
+        transform.rotate(float(roll),  1, 0, 0)
+
+        # Satelita
         for item in self.satellite_items:
             item.setTransform(transform)
 
-        # Ustawienie środka widoku kamery bezpośrednio przez argument 'pos'
+        # Osie ciała
+        for axis in self._axis_items:
+            axis.setTransform(transform)
+
         if track_camera and self.view:
             target_pos = QVector3D(float(x), float(y), float(z))
             self.view.setCameraPosition(pos=target_pos)
             self.view.update()
 
+    def add_orbit_trace_point(self, position_km):
+        
+        self.orbit_trace.append(np.asarray(position_km))
+        pos_realtive_to_center = [pos - position_km for pos in self.orbit_trace]
+        if self.orbit_line is not None:
+            self.orbit_line.setData(
+                pos=np.asarray(pos_realtive_to_center, dtype=np.float32)
+            )
+
+    def mark_orbit_trace(self, is_visible: bool):
+        if not self.view:
+            return
+
+        if is_visible:
+
+            if self.orbit_line is None:
+                self.orbit_line = gl.GLLinePlotItem(
+                    pos=np.asarray([0,0,0]),
+                    color=(1.0, 0.5, 0.0, 1.0),
+                    width=2,
+                    mode="line_strip",
+                    glOptions="opaque"
+                )
+                self.view.addItem(self.orbit_line)
+
+            # else:
+            #     pts = np.asarray(self.orbit_trace, dtype=np.float32)
+
+            #     self.orbit_line.setData(pos=pts)
+            #     self.orbit_line.show()
+                
+
+        elif self.orbit_line is not None:
+            self.orbit_line.hide()
+
+    def show_magnetic_vector(self, is_visible):
+        pass
+
+    def show_net_torque(self, is_visible):
+        pass
+    
     def _clear_satellite(self) -> None:
         for item in self.satellite_items:
             self.view.removeItem(item)

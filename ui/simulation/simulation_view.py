@@ -100,6 +100,10 @@ class SimulationView(QWidget):
         self.controls_panel_container.satellite_state_changed.connect(
             self._on_satellite_state_changed
         )
+
+        self.controls_panel_container.scence_changed.connect(
+            self.update_scene
+        )
         
         self.scene_panel_container = SimulationScene()
 
@@ -150,6 +154,27 @@ class SimulationView(QWidget):
             self.scene_panel_container._ensure_ECEF_orientation(
                 self.current_ecef_rotation
             )
+
+            self.update_scene()
+
+    
+    def update_scene(self):
+        self.scene_panel_container.mark_orbit_trace(
+            self.controls_panel_container.show_orbit_trace
+            )
+
+        self.scene_panel_container.show_body_frame(
+            self.controls_panel_container.show_body_frame
+        )
+
+        
+        self.scene_panel_container.show_magnetic_vector(
+            self.controls_panel_container.show_magnetic_vector
+        )
+
+        self.scene_panel_container.show_net_torque(
+            self.controls_panel_container.show_rw_net_torque
+        )
 
     def _update_plots_callback(self):
         # Wykresy odświeżają się w stałym interwale 30 FPS, niezależnie od liczby kroków integracji

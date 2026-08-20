@@ -79,18 +79,20 @@ class SimulationPlotsPanel(QWidget):
     MAX_PLOTS = 3
 
     Y_AXIS_OPTIONS = {
-        "Euler Angles (ϕ, θ, ψ) [deg]": ["roll", "pitch", "yaw"],
-        "Angular Velocity (ωx, ωy, ωz) [deg/s]": [
+        "Euler Angles [deg]": ["roll", "pitch", "yaw"],
+        "Angular Velocity [deg/s]": [
             "omega_x",
             "omega_y",
             "omega_z",
         ],
         # "ECI Position (X, Y, Z) [km]": ["pos_x", "pos_y", "pos_z"],
         # "ECI Velocity (Vx, Vy, Vz) [km/s]": ["vel_x", "vel_y", "vel_z"],
-        "Quaternion (q0, q1, q2, q3)": ["q0", "q1", "q2", "q3"],
-        "Magnetic Field (Bx, By, Bz) [T]" : ["b_body_x", "b_body_y", "b_body_z"],
-        "Control Current (Ix, Iy, Iz) [A]" : ["i_ctrl_x", "i_ctrl_y", "i_ctrl_z"],
-        "Bdot Torque (tau_x, tau_y, tau_z) [N]" : ["tau_ctrl_x", "tau_ctrl_y", "tau_ctrl_z"],
+        "Quaternion [-]": ["q0", "q1", "q2", "q3"],
+        "Magnetic Field [T]" : ["b_body_x", "b_body_y", "b_body_z"],
+        "Control Current [A]" : ["i_ctrl_x", "i_ctrl_y", "i_ctrl_z"],
+        "Control Torque [N]" : ["tau_ctrl_x", "tau_ctrl_y", "tau_ctrl_z"],
+        "RW Speed [deg/s]" : ["omega_rw_x", "omega_rw_y", "omega_rw_z"],
+        "RW Angular Acc [deg/s^2]" : ["alpha_x", "alpha_y", "alpha_z"],
     }
 
     CURVE_COLORS = ["#FF5252", "#4CAF50", "#2196F3", "#FFEB3B"]

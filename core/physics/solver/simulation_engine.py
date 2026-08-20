@@ -12,7 +12,7 @@ from core.physics.dataclasses.simulation_state import SimulationState
 from core.physics.sensors.gyroscope import Gyroscope
 from core.physics.sensors.magnetometer import Magnetometer
 from core.physics.solver.solver import equations_of_motion, rk4_step
-from utils.transformations import quaternion_to_euler
+from utils.transformations import euler_to_quaternion, quaternion_to_euler
 
 
 class SimulationEngine:
@@ -136,6 +136,8 @@ class SimulationEngine:
         else:
             self.mode_summary = "Mode: IDLE | ADCS active control disabled"
 
+        print(self.mode_summary)
+        print(f"Raction Wheels max speed [rad/s]: {self.rw_max_speed}")
         return self.mode_summary
 
     def _update_sensors(self) -> None:
@@ -171,13 +173,19 @@ class SimulationEngine:
                 self.i_ctrl = np.zeros(3)
 
                 # Konwersja kątów z UI (stopnie) na radiany
-                target_euler_rad = np.radians(self.target_angles)
-                current_euler_rad = np.radians(self.current_euler_angles)
+                target_quat = euler_to_quaternion(
+                    *self.current_euler_angles,
+                    degrees=True
+                    )
+                current_quat = euler_to_quaternion(
+                    *self.target_angles,
+                    degrees=True
+                )
 
                 # Obliczenie przyspieszeń kół i pożądanego momentu
                 self.alpha_wheels, self.current_tau_ctrl = self.rw_controller.compute_control(
-                    current_euler_rad=current_euler_rad,
-                    target_euler_rad=target_euler_rad,
+                    current_quat=current_quat,
+                    target_quat=target_quat,
                     current_omega=self.current_omega,
                     current_omega_rw=self.sim_state.satellite.omega_rw
                 )
@@ -280,6 +288,13 @@ class SimulationEngine:
             "tau_ctrl_x": [],
             "tau_ctrl_y": [],
             "tau_ctrl_z": [],
+            # --- reaction wheels ---
+            "omega_rw_x" : [],
+            "omega_rw_y" : [],
+            "omega_rw_z" : [],
+            "alpha_x" : [],
+            "alpha_y" : [],
+            "alpha_z" : [],
         }
 
         self._record_telemetry()
@@ -292,6 +307,7 @@ class SimulationEngine:
 
         roll, pitch, yaw = quaternion_to_euler(sat.q, degrees=True)
         omega_deg = np.degrees(sat.omega)
+        omega_rw_deg = np.degrees(sat.omega_rw)
 
         self.history["time"].append(t)
         self.history["pos_x"].append(sat.p[0])
@@ -338,3 +354,11 @@ class SimulationEngine:
         self.history["tau_ctrl_x"].append(self.current_tau_ctrl[0])
         self.history["tau_ctrl_y"].append(self.current_tau_ctrl[1])
         self.history["tau_ctrl_z"].append(self.current_tau_ctrl[2])
+
+        self.history["omega_rw_x"].append(omega_rw_deg[0])
+        self.history["omega_rw_y"].append(omega_rw_deg[1])
+        self.history["omega_rw_z"].append(omega_rw_deg[2])
+
+        self.history["alpha_x"].append(self.alpha_wheels[0])
+        self.history["alpha_y"].append(self.alpha_wheels[1])
+        self.history["alpha_z"].append(self.alpha_wheels[2])

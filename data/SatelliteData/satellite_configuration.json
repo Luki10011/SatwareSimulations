@@ -1,6 +1,6 @@
 {
   "mechanical": {
-    "mass": 0.5,
+    "mass": 4.0,
     "dimensions": [
       0.2,
       0.2,
@@ -8,49 +8,49 @@
     ],
     "inertia_tensor": [
       [
-        0.003333,
+        0.026667,
         0.0,
         0.0
       ],
       [
         0.0,
-        0.003333,
+        0.026667,
         0.0
       ],
       [
         0.0,
         0.0,
-        0.003333
+        0.026667
       ]
     ]
   },
   "electromagnetic": {
     "coil_turns": 100,
-    "coil_area": 0.04,
-    "max_current": 1.0
+    "coil_area": 0.02,
+    "max_current": 0.12
   },
   "reaction_wheels": {
     "configuration": "principal",
     "wheel_count": 3,
     "wheel_mass": 0.25,
-    "wheel_radius": 0.04,
-    "wheel_height": 0.04,
-    "wheel_max_speed": 3000.0,
+    "wheel_radius": 0.03,
+    "wheel_height": 0.02,
+    "wheel_max_speed": 6000.0,
     "inertia_tensor": [
       [
-        0.00013333333333333334,
+        6.458333333333334e-05,
         0.0,
         0.0
       ],
       [
         0.0,
-        0.00013333333333333334,
+        6.458333333333334e-05,
         0.0
       ],
       [
         0.0,
         0.0,
-        0.0002
+        0.0001125
       ]
     ]
   }

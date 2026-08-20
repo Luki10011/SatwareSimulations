@@ -39,6 +39,7 @@ from utils.transformations import (
 class SimulationControls(QWidget):
 
     satellite_state_changed = pyqtSignal(list, list, list)
+    scence_changed = pyqtSignal()
 
     def __init__(self, orbital_data: OrbitalElements, satellite_data: SatelliteConfiguration, dt :float = 0.1, parent=None):
         super().__init__(parent)
@@ -48,6 +49,11 @@ class SimulationControls(QWidget):
         self.current_configuration = None
         self.silent_update = False
         self.step_val = dt
+
+        self.show_body_frame = False
+        self.show_magnetic_vector = False
+        self.show_rw_net_torque = False
+        self.show_orbit_trace = False
         
         self.us_locale = QLocale(QLocale.Language.English, QLocale.Country.UnitedStates)
         self.setup_view()
@@ -119,6 +125,7 @@ class SimulationControls(QWidget):
         self.control_panel = SimulationControlPanel(self)
 
         self.control_panel.state_updated.connect(self._on_simulation_step)
+        self.control_panel.overlay_toggled.connect(self._on_overlay_changed)
 
         # Index 2: Simulation Plots
         self._plots_tab = SimulationPlotsPanel()
@@ -262,6 +269,19 @@ class SimulationControls(QWidget):
         #     history_data = self.control_panel.engine.history
         #     self._plots_tab.update_telemetry(history_data)
 
+    def _on_overlay_changed(self, case : str, checked : bool):
+
+        match case:
+            case "body_axes":
+                self.show_body_frame = checked
+            case "magnetic_vector":
+                self.show_magnetic_vector = checked
+            case "rw_torque":
+                self.show_rw_net_torque = checked
+            case "orbit_trace":
+                self.show_orbit_trace = checked
+        self.scence_changed.emit()
+
     def _start_simulation(self) -> None:
         config = self.save_configuration()
         if config is None:
@@ -346,7 +366,7 @@ class SimulationControls(QWidget):
             I_R=I_R,
             wheel_axes=wheel_axes_list,
             I_total=total_tensor,
-            rw_max_speed=rw_max_speed,
+            rw_max_speed=rw_max_speed * 2 * np.pi / 60,
             dt=dt_val,
             area=area,
             max_current=max_current,
@@ -373,8 +393,8 @@ class SimulationControls(QWidget):
         print(" [Reaction Wheels Configuration]")
         print(f"  • Wheel Count           : {rw_count}")
         print(f"  • Configuration Type    : {rw_configuraion}")
-        print(f"  • Wheel Mass / Rad / H  : {rw_mass} kg / {rw_radius} m / {rw_height} m")
-        print(f"  • Max Speed             : {rw_max_speed} rad/s")
+        print(f"  • Wheel Mass / R / H  : {rw_mass} kg / {rw_radius} m / {rw_height} m")
+        print(f"  • Max Speed             : {rw_max_speed} deg/s")
         if wheel_axes_list:
             print("  • Spin Axes Vectors     :")
             for idx, axis in enumerate(wheel_axes_list):

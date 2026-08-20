@@ -1,6 +1,6 @@
 from typing import List, Tuple
 import numpy as np
-
+from utils.rotations import quaternion_multiply
 
 class ReactionWheelsController:
     """Kontroler orientacji oparty na kołach reakcyjnych z pełną obsługą nasycenia prędkości i rozładowywania (desaturacji)."""
@@ -12,7 +12,7 @@ class ReactionWheelsController:
         I_total: np.ndarray,
         kp: float = 0.07,
         kd: float = 1.5,
-        max_alpha: float = 5.0,  # [rad/s^2] maxAlpha
+        max_alpha: float = 15.0,  # [rad/s^2] maxAlpha
         max_speed: float = 600.0,  # [rad/s] maxSpeed (~5700 RPM)
         aligned_axes: bool = False,
     ):
@@ -42,6 +42,7 @@ class ReactionWheelsController:
         else:
             self.J_pinv = np.linalg.pinv(self.J)
 
+
     def set_gains(self, kp: float, kd: float) -> None:
         self.kp = kp
         self.kd = kd
@@ -52,51 +53,51 @@ class ReactionWheelsController:
 
     def compute_control(
         self,
-        current_euler_rad: np.ndarray,
-        target_euler_rad: np.ndarray,
+        current_quat: np.ndarray,
+        target_quat: np.ndarray,
         current_omega: np.ndarray,
         current_omega_rw: np.ndarray,  # w123
         target_omega: np.ndarray = np.zeros(3),
+        max_angle_error_rad : float = 0.35
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Wyznacza przyspieszenia kół (w123dot) oraz moment wywierany na kadłub (LMN_RWs)."""
         # 1. Pożądany moment z regulatora PD
-        e_angle = (
-            current_euler_rad - target_euler_rad + np.pi
-        ) % (2 * np.pi) - np.pi
-        e_omega = current_omega - target_omega
+        # e_angle = (
+        #     current_euler_rad - target_euler_rad 
+        # ) 
+        # e_omega = current_omega - target_omega
 
+        q_curr_inv = np.array(
+            [current_quat[0], -current_quat[1], -current_quat[2], -current_quat[3]]
+        )
+
+        q_err = quaternion_multiply(q_curr_inv, target_quat)
+
+        if q_err[0] < 0:
+            q_err = -q_err
+
+        e_angle = 2.0 * q_err[1:4]
+        e_norm = np.linalg.norm(e_angle)
+        if e_norm > max_angle_error_rad:
+            e_angle = e_angle * (max_angle_error_rad/e_norm)
+
+        e_omega = current_omega - target_omega
+        
         alpha_desired_body = -self.kp * e_angle - self.kd * e_omega
         M_desired = self.I_total @ alpha_desired_body
 
         # 2. Wyznaczenie wstępnych przyspieszeń kół (rwalphas)
-        if self.aligned_axes and self.N_R == 3:
-            rwalphas = M_desired / self.I_R_spin
-        else:
-            rwalphas = self.J_pinv @ M_desired
+        rwalphas = self.J_pinv @ M_desired
 
         # 3. Pętla nasycenia i wyhamowywania kół 
-        w123dot = np.zeros(self.N_R, dtype=float)
+        w123dot = np.clip(rwalphas, -self.max_alpha, self.max_alpha)
 
-        for idx in range(self.N_R):
-            if abs(current_omega_rw[idx]) > self.max_speed:
-                w123dot[idx] = 0.0
-                if not self.rw_saturated:
-                    print(
-                        "[RW Controller] Reaction Wheels have Saturated. Moving to desaturization scheme."
-                    )
-                    self.rw_saturated = True
-            else:
-                # Ograniczenie przyspieszenia kątowego
-                if abs(rwalphas[idx]) > self.max_alpha:
-                    rwalphas[idx] = np.sign(rwalphas[idx]) * self.max_alpha
-                w123dot[idx] = rwalphas[idx]
+        for i in range(self.N_R):
+            if (
+                abs(current_omega_rw[i]) >= self.max_speed and np.sign(w123dot[i]) == np.sign(current_omega_rw)
+            ):
+                w123dot[i] = 0.0
 
-            # Procedura desaturacji (spin down)
-            if self.rw_saturated:
-                w123dot[idx] = -0.1 * current_omega_rw[idx]
-
-        # 4. Liczenie momentu obrotowego LMN_RWs
-        # LMN_RWs = Ir1B*w123dot(1)*n1 + Ir2B*w123dot(2)*n2 + Ir3B*w123dot(3)*n3
         LMN_RWs = self.J @ w123dot
 
         return w123dot, LMN_RWs
