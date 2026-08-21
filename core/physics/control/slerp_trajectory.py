@@ -1,9 +1,23 @@
 import numpy as np
 
+from utils.rotations import quaternion_multiply
 
-def slerp(q0: np.ndarray, q1: np.ndarray, t: float) -> np.ndarray:
-    q0 = q0 / np.linalg.norm(q0)
-    q1 = q1 / np.linalg.norm(q1)
+
+def slerp(
+    q0: np.ndarray,
+    q1: np.ndarray,
+    t: float,
+) -> np.ndarray:
+
+    q0 = (
+        q0
+        / np.linalg.norm(q0)
+    )
+
+    q1 = (
+        q1
+        / np.linalg.norm(q1)
+    )
 
     dot = np.dot(q0, q1)
 
@@ -11,11 +25,22 @@ def slerp(q0: np.ndarray, q1: np.ndarray, t: float) -> np.ndarray:
         q1 = -q1
         dot = -dot
 
-    dot = np.clip(dot, -1.0, 1.0)
+    dot = np.clip(
+        dot,
+        -1.0,
+        1.0,
+    )
 
     if dot > 0.9995:
-        result = q0 + t * (q1 - q0)
-        return result / np.linalg.norm(result)
+        result = (
+            q0
+            + t * (q1 - q0)
+        )
+
+        return (
+            result
+            / np.linalg.norm(result)
+        )
 
     theta_0 = np.arccos(dot)
     theta = theta_0 * t
@@ -23,12 +48,27 @@ def slerp(q0: np.ndarray, q1: np.ndarray, t: float) -> np.ndarray:
     sin_theta = np.sin(theta)
     sin_theta_0 = np.sin(theta_0)
 
-    s0 = np.cos(theta) - dot * sin_theta / sin_theta_0
-    s1 = sin_theta / sin_theta_0
+    s0 = (
+        np.cos(theta)
+        - dot
+        * sin_theta
+        / sin_theta_0
+    )
 
-    result = s0 * q0 + s1 * q1
+    s1 = (
+        sin_theta
+        / sin_theta_0
+    )
 
-    return result / np.linalg.norm(result)
+    result = (
+        s0 * q0
+        + s1 * q1
+    )
+
+    return (
+        result
+        / np.linalg.norm(result)
+    )
 
 
 class SlerpTrajectoryGenerator:
@@ -77,54 +117,64 @@ class SlerpTrajectoryGenerator:
 
         dot = np.dot(
             self.q_start,
-            self.q_target
+            self.q_target,
         )
 
         if dot < 0.0:
             self.q_target = -self.q_target
             dot = -dot
 
-        dot = np.clip(dot, -1.0, 1.0)
+        dot = np.clip(
+            dot,
+            -1.0,
+            1.0,
+        )
 
-        self.angle = 2.0 * np.arccos(dot)
+        self.angle = (
+            2.0
+            * np.arccos(dot)
+        )
 
-        if self.angle < 1e-6:
+        if self.angle < 1e-8:
             self.axis = np.zeros(3)
             self.T_total = 0.0
             self.t_start = t_curr
             self.is_active = False
             return
 
-        q_err = np.array([
-            self.q_target[0] * self.q_start[1]
-            - self.q_target[1] * self.q_start[0]
-            - self.q_target[2] * self.q_start[3]
-            + self.q_target[3] * self.q_start[2],
-
-            self.q_target[0] * self.q_start[2]
-            + self.q_target[1] * self.q_start[3]
-            - self.q_target[2] * self.q_start[0]
-            - self.q_target[3] * self.q_start[1],
-
-            self.q_target[0] * self.q_start[3]
-            - self.q_target[1] * self.q_start[2]
-            + self.q_target[2] * self.q_start[1]
-            - self.q_target[3] * self.q_start[0],
-
-            self.q_target[0] * self.q_start[0]
-            + self.q_target[1] * self.q_start[1]
-            + self.q_target[2] * self.q_start[2]
-            + self.q_target[3] * self.q_start[3],
+        q_start_inv = np.array([
+            self.q_start[0],
+            -self.q_start[1],
+            -self.q_start[2],
+            -self.q_start[3],
         ])
 
-        sin_half = np.sin(self.angle / 2.0)
+        q_err = quaternion_multiply(
+            q_start_inv,
+            self.q_target,
+        )
+
+        if q_err[0] < 0:
+            q_err = -q_err
+
+        sin_half = np.sin(
+            self.angle / 2.0
+        )
 
         if abs(sin_half) < 1e-8:
             self.axis = np.zeros(3)
         else:
-            self.axis = q_err[:3] / sin_half
+            self.axis = (
+                q_err[1:4]
+                / sin_half
+            )
 
-        self.axis /= np.linalg.norm(self.axis)
+            axis_norm = np.linalg.norm(
+                self.axis
+            )
+
+            if axis_norm > 1e-8:
+                self.axis /= axis_norm
 
         self.T_total = (
             1.875
@@ -140,7 +190,10 @@ class SlerpTrajectoryGenerator:
         t_curr: float,
     ) -> tuple[np.ndarray, np.ndarray]:
 
-        if not self.is_active or self.T_total <= 0.0:
+        if (
+            not self.is_active
+            or self.T_total <= 0.0
+        ):
             return (
                 self.q_target.copy(),
                 np.zeros(3),
@@ -150,7 +203,11 @@ class SlerpTrajectoryGenerator:
             t_curr - self.t_start
         ) / self.T_total
 
-        tau = np.clip(tau, 0.0, 1.0)
+        tau = np.clip(
+            tau,
+            0.0,
+            1.0,
+        )
 
         if tau >= 1.0:
             self.is_active = False
@@ -184,4 +241,7 @@ class SlerpTrajectoryGenerator:
             * ds_dt
         )
 
-        return cmd_quat, cmd_omega
+        return (
+            cmd_quat,
+            cmd_omega,
+        )

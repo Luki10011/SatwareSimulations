@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from core.physics.control.bdot import BdotController
+from core.physics.control.moment_dumping_controller import MomentumDumpingController
 from core.physics.control.rw_controller import ReactionWheelsController
 from core.physics.control.slerp_trajectory import SlerpTrajectoryGenerator
 from core.physics.dataclasses.satellite_configuration import (
@@ -113,6 +114,20 @@ class SimulationEngine:
         self.current_tau_ctrl = np.zeros(3, dtype=float)
         self.i_ctrl = np.zeros(3, dtype=float)
 
+        self.momentum_dumping_controller = MomentumDumpingController(
+            wheel_axes=self.wheel_axes,
+            I_R_spin=self.I_R_spin,
+            max_wheel_speed=self.rw_controller.max_speed,
+            dump_start_ratio=0.70,
+            dump_full_ratio=0.90,
+            dump_gain=0.01,
+            max_dipole=0.2,
+        )
+
+        self.current_m_dipole = np.zeros(3)
+        self.current_tau_mag = np.zeros(3)
+        self.momentum_dumping_active = False
+
         self.next_mag_update = 0.0
         self.next_gyro_update = 0.0
         self.next_control_update = 0.0
@@ -169,21 +184,31 @@ class SimulationEngine:
 
         if t_curr >= self.next_control_update:
             if self.adcs_mode == "DETUMBLE":
-                self.alpha_wheels = np.zeros(len(self.wheel_axes))
+                self.alpha_wheels = np.zeros(
+                    len(self.wheel_axes)
+                )
+
                 self.i_ctrl = self.bdot_controller.get_control_current(
                     current_omega_mes=self.current_omega,
                     current_b_mes=self.current_b_body,
                     configuration=self.detumble_algorithm,
                 )
+
                 self.current_tau_ctrl = self.bdot_controller.get_torque(
                     current_applied=self.i_ctrl,
                     current_b_mes=self.current_b_body,
                 )
 
+                self.current_m_dipole = self.i_ctrl
+                self.current_tau_mag = self.current_tau_ctrl
+                self.momentum_dumping_active = False
+
             elif self.adcs_mode == "POINTING":
                 self.i_ctrl = np.zeros(3)
 
-                self.current_quat /= np.linalg.norm(self.current_quat)
+                self.current_quat /= np.linalg.norm(
+                    self.current_quat
+                )
 
                 final_target_quat = euler_to_quaternion(
                     *self.target_angles,
@@ -221,20 +246,34 @@ class SimulationEngine:
                     )
                 )
 
-                self.alpha_wheels, self.current_tau_ctrl = (
-                    self.rw_controller.compute_control(
-                        current_quat=self.current_quat,
-                        target_quat=cmd_quat,
-                        current_omega=self.current_omega,
-                        current_omega_rw=self.sim_state.satellite.omega_rw,
-                        target_omega=cmd_omega,
-                    )
+                (
+                    self.alpha_wheels,
+                    self.current_tau_ctrl,
+                ) = self.rw_controller.compute_control(
+                    current_quat=self.current_quat,
+                    target_quat=cmd_quat,
+                    current_omega=self.current_omega,
+                    current_omega_rw=self.sim_state.satellite.omega_rw,
+                    target_omega=cmd_omega,
                 )
 
-            else:  # IDLE
+                (
+                    self.current_m_dipole,
+                    self.current_tau_mag,
+                    self.momentum_dumping_active,
+                ) = self.momentum_dumping_controller.compute_control(
+                    current_omega_rw=self.sim_state.satellite.omega_rw,
+                    current_b_body=self.current_b_body,
+                )
+            else:
                 self.i_ctrl = np.zeros(3)
-                self.alpha_wheels = np.zeros(len(self.wheel_axes))
+                self.alpha_wheels = np.zeros(
+                    len(self.wheel_axes)
+                )
                 self.current_tau_ctrl = np.zeros(3)
+                self.current_m_dipole = np.zeros(3)
+                self.current_tau_mag = np.zeros(3)
+                self.momentum_dumping_active = False
 
             self.next_control_update += self.dt_control
 
@@ -242,6 +281,7 @@ class SimulationEngine:
         self._update_sensors()
 
         y_curr = self.sim_state.satellite.to_vector()
+
         y_next = rk4_step(
             equations_of_motion,
             self.sim_state.t,
@@ -250,16 +290,20 @@ class SimulationEngine:
             self.I_inv,
             self.I_S,
             self.wheel_axes,
-            self.current_tau_ctrl,
+            self.current_tau_mag,
             self.alpha_wheels,
             self.I_R_spin,
         )
 
-        self.sim_state.satellite = SatelliteState.from_vector(y_next)
+        self.sim_state.satellite = (
+            SatelliteState.from_vector(y_next)
+        )
+
         self.sim_state.t += self.sim_state.dt
         self.sim_state.step_count += 1
 
         self._record_telemetry()
+
         return self.sim_state.satellite
 
     def reset(self) -> SatelliteState:

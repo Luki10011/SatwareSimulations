@@ -36,34 +36,52 @@ def euler_to_quaternion(roll: float, pitch: float, yaw: float, degrees: bool = T
     return q / np.linalg.norm(q)
 
 
-def quaternion_to_euler(q: np.ndarray, degrees: bool = True) -> Tuple[float, float, float]:
-    """
-    Konwertuje kwaternion [w, x, y, z] na kąty Eulera (sekwencja ZYX / 3-2-1: Roll, Pitch, Yaw).
-    
+def quaternion_to_euler(
+    q: np.ndarray, degrees: bool = True
+) -> Tuple[float, float, float]:
+    """Konwertuje kwaternion [w, x, y, z] na kąty Eulera (sekwencja ZYX / 3-2-1: Roll, Pitch, Yaw).
+
+    Zawiera odporność na osobliwość Gimbal Lock (Pitch = +-90 deg).
+
     :param q: Kwaternion w postaci [w, x, y, z]
-    :param degrees: Flaga określająca, czy zwracać wyniki w stopniach (domyślnie True)
+    :param degrees: Flaga określająca, czy zwracać wyniki w stopniach
+        (domyślnie True)
     :return: Krotka (roll, pitch, yaw)
     """
     # Normalizacja dla stabilności numerycznej
-    q = q / np.linalg.norm(q)
+    norm = np.linalg.norm(q)
+    if norm < 1e-12:
+        return (0.0, 0.0, 0.0)
+
+    q = q / norm
     w, x, y, z = q[0], q[1], q[2], q[3]
 
-    # Roll (X-axis)
-    sinr_cosp = 2.0 * (w * x + y * z)
-    cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
-    roll = math.atan2(sinr_cosp, cosr_cosp)
-
-    # Pitch (Y-axis) z zabezpieczeniem przed Gimbal Lock (clamp do range [-1, 1])
+    # Test obecności osobliwości Gimbal Lock (Gimbal Lock detection)
+    # sinp = 2.0 * (w * y - z * x)
     sinp = 2.0 * (w * y - z * x)
-    sinp = max(-1.0, min(1.0, sinp))
-    pitch = math.asin(sinp)
 
-    # Yaw (Z-axis)
-    siny_cosp = 2.0 * (w * z + x * y)
-    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-    yaw = math.atan2(siny_cosp, cosy_cosp)
+    # Próg tolerancji numerycznej blisko +-1.0 (np. 0.999999)
+    if abs(sinp) >= 0.999999:
+        # Pitch osiaga dokładnie +90 lub -90 stopni
+        pitch = math.copysign(math.pi / 2.0, sinp)
+
+        # W osobliwości osie Roll i Yaw nakładają się na siebie.
+        # Przypisujemy cały obrót do Roll, a Yaw wyzerowujemy dla ciągłości.
+        roll = 2.0 * math.atan2(x, w)
+        yaw = 0.0
+    else:
+        # Standardowy przypadek (poza osobliwością Gimbal Lock)
+        sinr_cosp = 2.0 * (w * x + y * z)
+        cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
+        roll = math.atan2(sinr_cosp, cosr_cosp)
+
+        pitch = math.asin(max(-1.0, min(1.0, sinp)))
+
+        siny_cosp = 2.0 * (w * z + x * y)
+        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
 
     if degrees:
         return math.degrees(roll), math.degrees(pitch), math.degrees(yaw)
-    
+
     return roll, pitch, yaw
