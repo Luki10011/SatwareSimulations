@@ -29,14 +29,14 @@ class Gyroscope:
         :param omega: True prędkość kątowa w ukł. kadłuba [wx, wy, wz] [rad/s]
         :return: (euler_angles_meas [deg], omega_meas [rad/s])
         """
-        roll, pitch, yaw = quaternion_to_euler(q, degrees=True)
-        euler_meas = np.array([roll, pitch, yaw], dtype=float)
+        
+        quat_meas = q
 
         if self.noise_std_euler > 0:
-            euler_meas += np.random.normal(0, self.noise_std_euler, size=3)
+            quat_meas += np.random.normal(0, self.noise_std_euler, size=3)
 
         omega_meas = omega + self.bias_omega
         if self.noise_std_omega > 0:
             omega_meas += np.random.normal(0, self.noise_std_omega, size=3)
 
-        return euler_meas, omega_meas
+        return quat_meas, omega_meas

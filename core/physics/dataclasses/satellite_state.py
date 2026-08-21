@@ -10,7 +10,7 @@ class SatelliteState:
     omega_rw : np.ndarray # [w_rw_x, w_rw_y, w_rw_z] [rad/s]
 
     def to_vector(self) -> np.ndarray:
-        return np.hstack([self.p, self.v, self.q, self.omega, self.omega_rw])
+        return np.hstack([self.p, self.v, self.q / np.linalg.norm(self.q), self.omega, self.omega_rw])
 
     @classmethod
     def from_vector(cls, y: np.ndarray) -> "SatelliteState":

@@ -12,7 +12,7 @@ class ReactionWheelsController:
         I_total: np.ndarray,
         kp: float = 0.07,
         kd: float = 1.5,
-        max_alpha: float = 3.0,  # [rad/s^2] maxAlpha
+        max_alpha: float = 15.0,  # [rad/s^2] maxAlpha
         max_speed: float = 600.0,  # [rad/s] maxSpeed (~5700 RPM)
         aligned_axes: bool = False,
     ):
@@ -70,6 +70,12 @@ class ReactionWheelsController:
         if q_err[0] < 0:
             q_err = -q_err
 
+        dot = np.clip(np.abs(q_err[0]), -1, 1)
+        angle_deg_error = np.degrees(2.0 * np.arccos(dot))
+
+        if angle_deg_error < 0.15 and np.linalg.norm(current_omega) < np.radians(0.1):
+            return np.zeros(self.N_R), np.zeros(3)
+
         e_angle = 2.0 * q_err[1:4]
 
         # Ograniczenie amplitudy błędu (Slew rate limit)
@@ -79,8 +85,15 @@ class ReactionWheelsController:
 
         e_omega = current_omega - target_omega
 
+        h_rw = self.J @ current_omega_rw
+        h_sat = self.I_total @ current_omega
+
+        H = h_sat + h_rw
+
+        gyro_torque = np.cross(current_omega, H)
+
         # Dodatnie kp dla e_angle, ujemne kd dla tłumienia prędkości kątowej
-        alpha_desired_body = self.kp * e_angle - self.kd * e_omega
+        alpha_desired_body = self.kp * e_angle - self.kd * e_omega + 2*gyro_torque
         M_desired = self.I_total @ alpha_desired_body
 
         # 2. Wyznaczenie wstępnych przyspieszeń kół (rwalphas)

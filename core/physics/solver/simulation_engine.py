@@ -32,8 +32,8 @@ class SimulationEngine:
         area: float = 0.3,
         max_current: float = 0.5,
         coil_turns: int = 0,
-        dt_mag: float = 0.4,
-        dt_gyro: float = 0.4,
+        dt_mag: float = 0.2,
+        dt_gyro: float = 0.2,
         dt_control: float = 0.01,
         kp_rw: float =  0.003333,
         kd_rw: float = 45* 0.003333,
@@ -96,7 +96,7 @@ class SimulationEngine:
         )
 
         self.slerp_gen = SlerpTrajectoryGenerator(
-            max_slew_rate_deg_s=2.0
+            max_slew_rate_deg_s=2.0 
         )  # Domyślnie 2 deg/s
         self.last_target_angles: Optional[List[float]] = None
         self.last_adcs_mode: str = self.adcs_mode
@@ -106,7 +106,7 @@ class SimulationEngine:
         self.history: Dict[str, List[float]] = {}
 
         self.current_b_body = np.zeros(3, dtype=float)
-        self.current_euler_angles = np.zeros(3, dtype=float)
+        self.current_quat = np.zeros(4, dtype=float)
         self.current_omega = np.zeros(3, dtype=float)
 
         self.alpha_wheels = np.zeros(len(self.wheel_axes), dtype=float)
@@ -162,7 +162,7 @@ class SimulationEngine:
             self.next_mag_update += self.dt_mag
 
         if t_curr >= self.next_gyro_update:
-            self.current_euler_angles, self.current_omega = self.gyroscope.read(
+            self.current_quat, self.current_omega = self.gyroscope.read(
                 q=sat.q, omega=sat.omega
             )
             self.next_gyro_update += self.dt_gyro
@@ -183,12 +183,7 @@ class SimulationEngine:
             elif self.adcs_mode == "POINTING":
                 self.i_ctrl = np.zeros(3)
 
-                current_quat = np.asarray(
-                    self.sim_state.satellite.q,
-                    dtype=float,
-                ).copy()
-
-                current_quat /= np.linalg.norm(current_quat)
+                self.current_quat /= np.linalg.norm(self.current_quat)
 
                 final_target_quat = euler_to_quaternion(
                     *self.target_angles,
@@ -213,7 +208,7 @@ class SimulationEngine:
                     or self.last_target_angles != current_target_list
                 ):
                     self.slerp_gen.set_new_target(
-                        q_current=current_quat,
+                        q_current=self.current_quat,
                         q_target=final_target_quat,
                         t_curr=self.sim_state.t,
                     )
@@ -228,7 +223,7 @@ class SimulationEngine:
 
                 self.alpha_wheels, self.current_tau_ctrl = (
                     self.rw_controller.compute_control(
-                        current_quat=current_quat,
+                        current_quat=self.current_quat,
                         target_quat=cmd_quat,
                         current_omega=self.current_omega,
                         current_omega_rw=self.sim_state.satellite.omega_rw,
@@ -285,7 +280,7 @@ class SimulationEngine:
         self.current_b_body = self.magnetometer.read(
             date=self.sim_date, pos_m=sat.p, q=sat.q
         )
-        self.current_euler_angles, self.current_omega = self.gyroscope.read(
+        self.current_quat, self.current_omega = self.gyroscope.read(
             q=sat.q, omega=sat.omega
         )
 
@@ -351,7 +346,7 @@ class SimulationEngine:
         sat = self.sim_state.satellite
         t = self.sim_state.t
 
-        roll, pitch, yaw = quaternion_to_euler(sat.q, degrees=True)
+        roll, pitch, yaw = quaternion_to_euler(self.sim_state.satellite.q, degrees=True)
         omega_deg = np.degrees(sat.omega)
         omega_rw_deg = np.degrees(sat.omega_rw)
 
@@ -385,9 +380,11 @@ class SimulationEngine:
         self.history["b_body_y"].append(b_micro[1])
         self.history["b_body_z"].append(b_micro[2])
 
-        self.history["meas_roll"].append(self.current_euler_angles[0])
-        self.history["meas_pitch"].append(self.current_euler_angles[1])
-        self.history["meas_yaw"].append(self.current_euler_angles[2])
+        roll_meas, pitch_meas, yaw_meas = quaternion_to_euler(self.current_quat)
+
+        self.history["meas_roll"].append(roll_meas)
+        self.history["meas_pitch"].append(pitch_meas)
+        self.history["meas_yaw"].append(yaw_meas)
 
         self.history["meas_omega_x"].append(meas_omega_deg[0])
         self.history["meas_omega_y"].append(meas_omega_deg[1])
