@@ -89,17 +89,7 @@ class ReactionWheelsController:
             2.0 * np.arccos(dot)
         )
 
-        attitude_settled = (
-            angle_deg_error < 0.15
-            and np.linalg.norm(current_omega)
-            < np.radians(0.1)
-        )
-
-        if attitude_settled:
-            return (
-                np.zeros(self.N_R),
-                np.zeros(3),
-            )
+      
 
         e_angle = 2.0 * q_err[1:4]
 

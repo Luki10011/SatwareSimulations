@@ -162,3 +162,15 @@ def quaternion_multiply(q1: np.ndarray, q2: np.ndarray):
         w1*y2 - x1*z2 + y1*w2 + z1*x2,
         w1*z2 + x1*y2 - y1*x2 + z1*w2
     ])
+
+
+def _rotate_vector_by_quaternion(v: np.ndarray, q: np.ndarray) -> np.ndarray:
+        
+    w, x, y, z = q[0], q[1], q[2], q[3]
+    q_vec = np.array([x, y, z])
+
+    
+    cross1 = np.cross(q_vec, v)
+    cross2 = np.cross(q_vec, cross1)
+
+    return v + 2.0 * w * cross1 + 2.0 * cross2

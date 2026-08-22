@@ -1,17 +1,22 @@
 import numpy as np
+from core.physics.disturbance.gravity_gradient import GravityGradientDisturbance
+from core.physics.disturbance.j2_disturbance import J2Disturbance
 from utils.constants import CONSTANTS
 
 mu = CONSTANTS["mu"]
 
+gravity_gradient = GravityGradientDisturbance()
+j2_disturbance = J2Disturbance()
 
 
 def equations_of_motion(
     t: float,
     y: np.ndarray,
     I_inv: np.ndarray,
+    I_total : np.ndarray,
     I_S: np.ndarray,
     wheel_axes: list,
-    tau_ext: np.ndarray,
+    tau_mag: np.ndarray,
     alpha_wheels: np.ndarray = None,
     I_R_spin: float = 0.0,
 ) -> np.ndarray:
@@ -19,7 +24,7 @@ def equations_of_motion(
     N_R = len(wheel_axes)
 
     p = y[0:3]
-    v = y[3:6]
+    dp_dt = y[3:6]
     q = y[6:10]
     omega = y[10:13]
 
@@ -37,6 +42,10 @@ def equations_of_motion(
     a_grav = (
         -mu * p / (r_norm ** 3)
     )
+
+    j2_factor = j2_disturbance.compute_disturbance(p, r_norm)
+
+    dv_dt = a_grav + j2_factor 
 
     wx, wy, wz = omega
 
@@ -78,8 +87,15 @@ def equations_of_motion(
 
     H = I_S @ omega + h_R
 
+    tau_gg = gravity_gradient.compute_disturbance(
+        r_eci=p,
+        q_body=q,
+        I_total=I_total
+    )
+
     total_torque = (
-        tau_ext
+        tau_mag
+        + tau_gg
         + tau_RW_reaction
         - np.cross(omega, H)
     )
@@ -91,8 +107,8 @@ def equations_of_motion(
     domega_rw_dt = alpha_wheels
 
     return np.hstack([
-        v,
-        a_grav,
+        dp_dt,
+        dv_dt,
         dq_dt,
         domega_dt,
         domega_rw_dt,

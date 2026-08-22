@@ -98,7 +98,10 @@ class SimulationEngine:
 
         self.slerp_gen = SlerpTrajectoryGenerator(
             max_slew_rate_deg_s=2.0 
-        )  # Domyślnie 2 deg/s
+        )
+
+        
+
         self.last_target_angles: Optional[List[float]] = None
         self.last_adcs_mode: str = self.adcs_mode
         
@@ -288,6 +291,7 @@ class SimulationEngine:
             y_curr,
             self.sim_state.dt,
             self.I_inv,
+            self.I_total,
             self.I_S,
             self.wheel_axes,
             self.current_tau_mag,
