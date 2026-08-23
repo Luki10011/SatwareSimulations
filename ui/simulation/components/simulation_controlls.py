@@ -295,6 +295,12 @@ class SimulationControls(QWidget):
 
         # 2. Bezpieczne pobranie parametrów mechanicznych i domyślne wartości
         if sate_config and hasattr(sate_config, "mechanical"):
+            m_s = sate_config.mechanical.m
+            dimensions = [
+                sate_config.mechanical.a,
+                sate_config.mechanical.b,
+                sate_config.mechanical.h
+                ]
             I_S = np.asarray(sate_config.mechanical.I, dtype=np.float64)
         else:
             I_S = np.eye(3, dtype=np.float64)
@@ -345,6 +351,8 @@ class SimulationControls(QWidget):
         vel_ms = config.initial_velocities * 1000.0
         omega_rads = np.radians(config.initial_angular_velocities)
         omega_rw_rads = np.zeros(rw_count)
+        m_total = m_s + rw_count * rw_mass
+
 
         dt_val = getattr(config, "dt", self.step_val)
 
@@ -365,6 +373,8 @@ class SimulationControls(QWidget):
             area=area,
             max_current=max_current,
             coil_turns=coil_turns,
+            m_total=m_total,
+            dimensions=dimensions,
         )
 
         # --- Print informacji o uruchomionym eksperymencie ---
@@ -504,7 +514,7 @@ class SimulationControls(QWidget):
             self.calculated_velocities[idx].setText(f"{val:,.3f}")
 
     @staticmethod
-    def _kepler_to_eci(orbit: OrbitalElements, nu_rad: float) -> Tuple[np.ndarray, np.ndarray]:
+    def _kepler_to_eci(orbit: OrbitalElements, nu_rad: float, use_j2_correction: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         a_m = getattr(orbit, "semi_major_axis", 7000000.0) * 1e3
         e = getattr(orbit, "eccentricity", 0.0)
         inc_rad = np.deg2rad(getattr(orbit, "inclination", 0.0))
@@ -512,22 +522,42 @@ class SimulationControls(QWidget):
         arg_p_rad = np.deg2rad(getattr(orbit, "arg_perigee", 0.0))
 
         mu = CONSTANTS["mu"]
+        r_earth = CONSTANTS.get("R_E", 6378137.0)
+        j2 = CONSTANTS.get("J2", 1.08263e-3)
 
         p = a_m * (1.0 - e**2)
-        r = p / (1.0 + e * math.cos(nu_rad)) if (1.0 + e * math.cos(nu_rad)) != 0 else 1.0
-
+        denom = 1.0 + e * math.cos(nu_rad)
+        r = p / denom if denom != 0 else a_m
+        # Pozycja w układzie peryfokalnym (PQW)
         r_pqw = np.array([r * math.cos(nu_rad), r * math.sin(nu_rad), 0.0])
 
-        h = math.sqrt(mu * p) if p > 0 else 1.0
-        v_pqw = np.array([
-            -(mu / h) * math.sin(nu_rad),
-            (mu / h) * (e + math.cos(nu_rad)),
-            0.0
-        ])
+        # Prędkość keplerowska (dwucielowa)
+        h = math.sqrt(mu * p) if p > 0 else math.sqrt(mu * a_m)
+        vx_pqw = -(mu / h) * math.sin(nu_rad)
+        vy_pqw = (mu / h) * (e + math.cos(nu_rad))
 
+        # --- KOREKTA J2 DLA PRĘDKOŚCI INITIALIZACJI ---
+        if use_j2_correction:
+            # Szerokość geograficzna w funkcji kąta szerokości u = arg_p + nu
+            u_rad = arg_p_rad + nu_rad
+            sin_inc = math.sin(inc_rad)
+            sin_u = math.sin(u_rad)
+            sin_lat = sin_inc * sin_u
+
+            # Czynnik poprawek J2 do prędkości w polu zaburzonym
+            j2_factor = 1.0 + 1.5 * j2 * ((r_earth / r) ** 2) * (1.0 - 3.0 * (sin_lat ** 2))
+            if j2_factor > 0:
+                v_corr = math.sqrt(j2_factor)
+                vx_pqw *= v_corr
+                vy_pqw *= v_corr
+
+        v_pqw = np.array([vx_pqw, vy_pqw, 0.0])
+
+        # Transformacja PQW -> ECI
         r_eci_m = rotate_pqw_to_eci(r_pqw, raan_rad, inc_rad, arg_p_rad)
         v_eci_ms = rotate_pqw_to_eci(v_pqw, raan_rad, inc_rad, arg_p_rad)
 
+        # Zwrot w [km] i [km/s] dla UI
         return r_eci_m / 1000.0, v_eci_ms / 1000.0
 
     def _create_line_edit(self, validator: QDoubleValidator, read_only: bool = False, parent=None) -> QLineEdit:
@@ -781,6 +811,8 @@ class SimulationControls(QWidget):
                 return None
             numeric_angular_velocity.append(value)
 
+        dot_product = np.dot(numeric_position, numeric_velocity)
+        print(f"Iloczyn skalarny p * v: {dot_product}")
 
         self.current_configuration = SimulationConfiguration(
             orbital_data=self.orbital_data,

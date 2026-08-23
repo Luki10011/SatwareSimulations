@@ -87,6 +87,8 @@ class SimulationPlotsPanel(QWidget):
         ],
         # "ECI Position (X, Y, Z) [km]": ["pos_x", "pos_y", "pos_z"],
         # "ECI Velocity (Vx, Vy, Vz) [km/s]": ["vel_x", "vel_y", "vel_z"],
+        "ECI Attitude [km]" : ["pos_mag"],
+        "ECI Velocity Magnitude [km/s]" : ["vel_mag"],
         "Quaternion [-]": ["q0", "q1", "q2", "q3"],
         "Magnetic Field [T]" : ["b_body_x", "b_body_y", "b_body_z"],
         "Control Current [A]" : ["i_ctrl_x", "i_ctrl_y", "i_ctrl_z"],

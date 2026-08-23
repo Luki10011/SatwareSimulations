@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
@@ -11,11 +12,12 @@ from core.physics.dataclasses.satellite_configuration import (
 )
 from core.physics.dataclasses.satellite_state import SatelliteState
 from core.physics.dataclasses.simulation_state import SimulationState
+from core.physics.disturbance.atmoshperic_drag import AtmosphericDragDisturbance
 from core.physics.sensors.gyroscope import Gyroscope
 from core.physics.sensors.magnetometer import Magnetometer
 from core.physics.solver.solver import equations_of_motion, rk4_step
 from utils.transformations import euler_to_quaternion, quaternion_to_euler
-
+from utils.constants import CONSTANTS
 
 class SimulationEngine:
 
@@ -39,6 +41,8 @@ class SimulationEngine:
         kp_rw: float =  0.003333,
         kd_rw: float = 45* 0.003333,
         aligned_axes: bool = False,
+        m_total : float = 1.0,
+        dimensions = [0.1, 0.1, 0.1],
     ):
         self.initial_satellite_state = copy.deepcopy(initial_state)
         self.dt = dt
@@ -127,6 +131,22 @@ class SimulationEngine:
             max_dipole=0.2,
         )
 
+        self.atmospheric_model = AtmosphericDragDisturbance(
+            mass=m_total,
+            dimensions=dimensions,
+            com_offset=[0, 0, 0]
+        )
+        print(
+                "=================================================================",
+                "                          ATMOSPHEREMODEL",
+                "=================================================================",
+                F"MASS: {self.atmospheric_model.mass}",
+                F"a: {self.atmospheric_model.dx}",
+                F"b: {self.atmospheric_model.dy}",
+                F"h: {self.atmospheric_model.dz}",
+
+            )
+
         self.current_m_dipole = np.zeros(3)
         self.current_tau_mag = np.zeros(3)
         self.momentum_dumping_active = False
@@ -134,6 +154,8 @@ class SimulationEngine:
         self.next_mag_update = 0.0
         self.next_gyro_update = 0.0
         self.next_control_update = 0.0
+
+        self.epoch_start = datetime.now()
 
         self.reset()
 
@@ -297,6 +319,8 @@ class SimulationEngine:
             self.current_tau_mag,
             self.alpha_wheels,
             self.I_R_spin,
+            self.atmospheric_model,
+            self.epoch_start
         )
 
         self.sim_state.satellite = (
@@ -346,9 +370,11 @@ class SimulationEngine:
             "pos_x": [],
             "pos_y": [],
             "pos_z": [],
+            "pos_mag" : [],
             "vel_x": [],
             "vel_y": [],
             "vel_z": [],
+            "vel_mag" : [],
             # --- True State ---
             "roll": [],
             "pitch": [],
@@ -399,13 +425,17 @@ class SimulationEngine:
         omega_rw_deg = np.degrees(sat.omega_rw)
 
         self.history["time"].append(t)
-        self.history["pos_x"].append(sat.p[0])
-        self.history["pos_y"].append(sat.p[1])
-        self.history["pos_z"].append(sat.p[2])
+        self.history["pos_x"].append(sat.p[0] / 1000)
+        self.history["pos_y"].append(sat.p[1] / 1000)
+        self.history["pos_z"].append(sat.p[2] / 1000)
 
-        self.history["vel_x"].append(sat.v[0])
-        self.history["vel_y"].append(sat.v[1])
-        self.history["vel_z"].append(sat.v[2])
+        self.history["pos_mag"].append((np.linalg.norm(sat.p)) / 1000)
+
+        self.history["vel_x"].append(sat.v[0] / 1000)
+        self.history["vel_y"].append(sat.v[1] / 1000)
+        self.history["vel_z"].append(sat.v[2] / 1000)
+
+        self.history["vel_mag"].append(np.linalg.norm(sat.v) / 1000)
 
         self.history["roll"].append(roll)
         self.history["pitch"].append(pitch)

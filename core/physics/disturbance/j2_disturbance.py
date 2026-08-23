@@ -1,6 +1,6 @@
-
 from utils.constants import CONSTANTS
 import numpy as np
+
 
 class J2Disturbance:
 
@@ -9,12 +9,17 @@ class J2Disturbance:
         self.J2 = CONSTANTS["J2"]
         self.R_E = CONSTANTS["R"]
 
-    def compute_disturbance(self, pos: np.ndarray, r_norm: float = None) -> np.ndarray:
+    def compute_disturbance(
+        self, pos: np.ndarray, r_norm: float = None
+    ) -> np.ndarray:
         r = r_norm if r_norm is not None else np.linalg.norm(pos)
+
+        if r == 0:
+            return np.zeros(3)
 
         x, y, z = pos[0], pos[1], pos[2]
 
-        coeff = -(3.0 / 2.0) * self.J2 * (self.mu * (self.R_E**2) / (r**4))
+        coeff = -1.5 * self.J2 * self.mu * (self.R_E**2) / (r**4)
 
         z_over_r_sq = (z / r) ** 2
 

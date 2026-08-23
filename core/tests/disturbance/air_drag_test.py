@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from core.physics.disturbance.atmoshperic_drag import AtmosphericDragDisturbance
 
-
+    
 @pytest.fixture
 def drag_model():
     """Tworzy instancję oporu dla satelity 0.8m x 0.6m x 0.5m o masie 2kg."""
@@ -49,30 +49,29 @@ def test_projected_area_principal_axes(drag_model):
     np.testing.assert_allclose(cop_z, [0.0, 0.0, 0.25])
 
 
-def test_torque_generation_with_com_offset():
-    """Sprawdza generowanie momentu obrotowego przy nietrywialnym offsetcie środka masy."""
-    com_offset = np.array([0.05, 0.0, 0.0])  # CoM przesunięty o +5 cm w osi X
-    drag_model_offset = AtmosphericDragDisturbance(
+def test_torque_zero_for_symmetric_body_and_centered_com():
+    """Sprawdza, czy dla symetrycznego prostopadłościanu z CoM=[0,0,0] moment obrotowy wynosi 0."""
+    drag_model = AtmosphericDragDisturbance(
         Cd=2.2,
         dimensions=(0.8, 0.6, 0.5),
         mass=2.0,
-        com_offset=com_offset,
+        com_offset=np.array([0.0, 0.0, 0.0]),
     )
 
     r_eci = np.array([7000000.0, 0.0, 0.0])
-    v_eci = np.array([0.0, 0.0, 7500.0])  # Przepływ trafia w ścianę +Z (u_v_body = [0, 0, 1])
+    # Przepływ pod kątem w płaszczyźnie X-Z
+    v_eci = np.array([5303.3, 0.0, 5303.3])
     q_identity = np.array([1.0, 0.0, 0.0, 0.0])
 
-    _, tau_drag = drag_model_offset.compute_disturbance(r_eci, v_eci, q_identity)
+    f_drag, tau_drag = drag_model.compute_disturbance(r_eci, v_eci, q_identity)
 
-    # Dla przepływu w osi +Z: CoP = [0, 0, 0.25]
-    # Ramię siły r_arm = CoP - CoM = [-0.05, 0, 0.25]
-    # Siła F_body skierowana w -Z ([0, 0, -F_mag])
-    # Moment tau = r_arm x F_body -> powinen dać składową w osi Y!
-    assert tau_drag[1] != 0.0
-    assert pytest.approx(tau_drag[0]) == 0.0
-    assert pytest.approx(tau_drag[2]) == 0.0
+    # Siła wypadkowa musi być niezerowa
+    assert np.linalg.norm(f_drag) > 0.0
 
+    # Moment obrotowy dla symetrycznego układu z CoM w originie musi wynosić 0
+    assert pytest.approx(tau_drag[0], abs=1e-13) == 0.0
+    assert pytest.approx(tau_drag[1], abs=1e-13) == 0.0
+    assert pytest.approx(tau_drag[2], abs=1e-13) == 0.0
 
 def test_zero_velocity_handling(drag_model):
     """Sprawdza brak błędów (np. dzielenia przez zero) dla zerowej prędkości."""

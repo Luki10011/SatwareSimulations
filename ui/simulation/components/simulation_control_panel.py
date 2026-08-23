@@ -93,7 +93,7 @@ class SimulationControlPanel(QWidget):
 
         self.slider_speed = QSlider(Qt.Orientation.Horizontal)
         self.slider_speed.setMinimum(1)
-        self.slider_speed.setMaximum(100)
+        self.slider_speed.setMaximum(10)
         self.slider_speed.setValue(1)
         self.slider_speed.setTickInterval(10)
         self.slider_speed.setTickPosition(QSlider.TickPosition.TicksBelow)

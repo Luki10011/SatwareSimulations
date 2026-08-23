@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QFormLayout, QHBoxLayout, QSplitter, QStyle, QWidget, QVBoxLayout, QLabel, QPushButton
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QImage, QPainter, QPixmap, QColor
+from PyQt6.QtCore import QUrl, Qt
+from PyQt6.QtGui import QDesktopServices, QFont, QImage, QPainter, QPixmap, QColor
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 
@@ -229,17 +229,22 @@ class MainScreenWelcome(QWidget):
         self.info = QLabel()
         self.info.setWordWrap(True)  
         self.info.setText(
-            "Lorem ipsum dolor sit amet consectetur adipiscing elit. Quisque faucibus ex sapien vitae " \
-            "pellentesque sem placerat. In id cursus mi pretium tellus duis convallis. Tempus leo eu " \
-            "aenean sed diam urna tempor. Pulvinar vivamus fringilla lacus nec metus bibendum egestas. " \
-            "Iaculis massa nisl malesuada lacinia integer nunc posuere. Ut hendrerit semper vel class " \
-            "aptent taciti sociosqu. Ad litora torquent per conubia nostra inceptos himenaeos." \
-
-            "\n\nLorem ipsum dolor sit amet consectetur adipiscing elit. Quisque faucibus ex sapien vitae " \
-            "pellentesque sem placerat. In id cursus mi pretium tellus duis convallis. Tempus leo eu " \
-            "aenean sed diam urna tempor. Pulvinar vivamus fringilla lacus nec metus bibendum egestas. " \
-            "Iaculis massa nisl malesuada lacinia integer nunc posuere. Ut hendrerit semper vel class " \
-            "aptent taciti sociosqu. Ad litora torquent per conubia nostra inceptos himenaeos."
+            "The software is designed for intuitive analysis and simulation of space missions, "
+            "covering initial orbit design, disturbance analysis, and full 6-DOF attitude dynamics. "
+            "It consists of three main functional modules:\n\n"
+            "• Orbit Designer: Enables full orbit generation using classical Keplerian elements, "
+            "3D spatial visualization (ECI/ECEF frames, orbital planes, Earth mesh), and trajectory "
+            "classification (LEO, MEO, HEO, Sun-Synchronous, Molniya). It includes dedicated analysis "
+            "for orbit geometry, energy dynamics, and J2 perturbation effects, with support for "
+            "pre-defined and custom JSON orbit profiles.\n\n"
+            "• Satellite Configurator: Facilitates the setup of mechanical properties, mass distribution, "
+            "center of mass offset, inertia tensors, and magnetic dipole parameters. It also configures "
+            "Reaction Wheel assemblies and allows full save/load management of satellite configurations.\n\n"
+            "• Simulation Module: Combines chosen orbit and satellite profiles to execute numerical "
+            "integration under initial state conditions. It features real-time 3D motion playback "
+            "(with pause/speed control), active ADCS testing using B-dot detumbling algorithms and "
+            "Reaction Wheel control, custom plot generation (up to 3 plots), and environmental "
+            "disturbance modeling including J2, Gravity Gradient, and Atmospheric Drag."
         )
         self.info.setStyleSheet("""
         
@@ -255,6 +260,7 @@ class MainScreenWelcome(QWidget):
             }
         
         """)
+        self.info.setAlignment(Qt.AlignmentFlag.AlignJustify)
         
         right_layout.addRow(self.info)
 
@@ -262,8 +268,17 @@ class MainScreenWelcome(QWidget):
         btn_user_manual.setStyleSheet(
             "margin-top: 10px"
         )
+        btn_user_manual.clicked.connect(
+            self._redirect_to_github
+        )
+
 
         right_layout.addRow(btn_user_manual)
+
+    def _redirect_to_github(self):
+        url = QUrl("https://github.com/Luki10011/SatwareSimulations")
+        QDesktopServices.openUrl(url)
+
         
         
         
