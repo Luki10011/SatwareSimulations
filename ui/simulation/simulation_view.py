@@ -128,13 +128,13 @@ class SimulationView(QWidget):
         self,
         dimensions_m: tuple[float, float, float],
         position_km: tuple[float, float, float],
-        euler_deg: tuple[float, float, float],
+        quat_orientation: tuple[float, float, float],
     ) -> None:
         if not self.scene_panel_container.satellite_items:
             self.scene_panel_container.create_satellite(dimensions_m)
 
         self.scene_panel_container.update_satellite_state(
-            position_km=position_km, euler_deg=euler_deg, track_camera=True
+            position_km=position_km, quat_orientation=quat_orientation, track_camera=True
         )
 
         simulation_engine = self.controls_panel_container.control_panel.engine

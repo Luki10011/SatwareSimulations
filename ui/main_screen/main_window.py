@@ -24,7 +24,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Satware Simulations")
         self.resize(1280, 720) 
         
-        self.load_stylesheet("ui/utils/styles.qss")
+        self.load_stylesheet("ui/styles.qss")
         
         self._is_switching = False 
         

@@ -136,8 +136,8 @@ def equations_of_motion(
     # Całkowite przyspieszenie liniowe
 
 
-    # dv_dt = a_grav + j2_factor + a_drag
-    dv_dt = a_grav + a_drag
+    dv_dt = a_grav + j2_factor + a_drag
+    # dv_dt = a_grav + a_drag
 
 
     # 4. Kinematyka obrotowa (pochodna kwaternionu)
@@ -154,16 +154,16 @@ def equations_of_motion(
     h_R = np.zeros(3, dtype=float)
     tau_RW_reaction = np.zeros(3, dtype=float)
 
-    stats = compute_osculating_semi_major_axis(r_eci_m, v_eci_ms)
+    # stats = compute_osculating_semi_major_axis(r_eci_m, v_eci_ms)
 
-    print(
-        f"[t={t:.0f}s] "
-        f"r: {stats['r_norm_km']:.4f} km | "
-        f"a: {stats['a_km']:.6f} km | "
-        f"e: {stats['e']:.7f} | "
-        f"Perygeum: {stats['hp_km']:.3f} km | "
-        f"Apogeum: {stats['ha_km']:.3f} km"
-    )
+    # print(
+    #     f"[t={t:.0f}s] "
+    #     f"r: {stats['r_norm_km']:.4f} km | "
+    #     f"a: {stats['a_km']:.6f} km | "
+    #     f"e: {stats['e']:.7f} | "
+    #     f"Perygeum: {stats['hp_km']:.3f} km | "
+    #     f"Apogeum: {stats['ha_km']:.3f} km"
+    # )
 
     for i, axis in enumerate(wheel_axes):
         n_i = axis / np.linalg.norm(axis)
@@ -182,7 +182,7 @@ def equations_of_motion(
     # 7. Całkowity moment obrotowy działający na satelitę
     total_torque = (
         tau_mag
-        # + tau_gg
+        + tau_gg
         + tau_drag
         + tau_RW_reaction
         - np.cross(omega, H)

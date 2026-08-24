@@ -8,9 +8,13 @@ import pyqtgraph as pg
 PROJECT_NAME = "SatWare Simullations"
 PROJECT_VERSION = "0.1.0"
 
+import pyqtgraph
+
 
 def main() -> None:
     welcome(PROJECT_NAME, PROJECT_VERSION)
+    print(pyqtgraph.__version__)
+
     pg.setConfigOptions(
         useOpenGL=True,  # Przenosi renderowanie linii na GPU
         antialias=False,  # Drastyczny wzrost FPS (wyłącza wygładzanie linii)

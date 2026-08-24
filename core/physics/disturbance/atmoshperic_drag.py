@@ -179,13 +179,5 @@ class AtmosphericDragDisturbance:
         # Moment obrotowy w Body Frame: tau = r x F
         tau_drag_body = np.cross(r_arm, f_drag_body)
 
-        print(
-            f"rho = {rho:.4e} kg/m^3, "
-            f"v_rel = {v_rel_norm:.3f} m/s, "
-            f"A = {A_proj:.4f} m^2, "
-            f"F = {f_drag_mag:.4e} N, "
-            f"a = {f_drag_mag / self.mass:.4e} m/s^2"
-            f"p = {np.linalg.norm(r_eci / 1000)}"
-        )
 
         return f_drag_eci, tau_drag_body

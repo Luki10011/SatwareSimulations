@@ -262,7 +262,7 @@ class SimulationControls(QWidget):
         quat_orientation = state[6:10]
         angular_vel =  state[10:13]
 
-        self.satellite_state_changed.emit([], pos_km, quaternion_to_euler(quat_orientation))
+        self.satellite_state_changed.emit([], pos_km, quat_orientation)
 
         # Akutalizacja wykresów
         # if self.control_panel.engine is not None:
@@ -468,13 +468,13 @@ class SimulationControls(QWidget):
                 self._parse_field_number(self.input_euler_angles[2]) or 0.0,
             ]
 
-        return dimensions_m, pos_km, euler_deg
+        return dimensions_m, pos_km, euler_to_quaternion(*euler_deg)
 
     def emit_current_satellite_state(self) -> None:
         """Emituje aktualny stan satelity do widoku 3D."""
         base_config = self.save_configuration()
-        dimensions_m, pos_km, euler_deg = self.get_satellite_state(base_config)
-        self.satellite_state_changed.emit(dimensions_m, pos_km, euler_deg)
+        dimensions_m, pos_km, quat_orientation = self.get_satellite_state(base_config)
+        self.satellite_state_changed.emit(dimensions_m, pos_km, quat_orientation)
 
     def _create_separator(self) -> QFrame:
         line = QFrame()
@@ -514,7 +514,7 @@ class SimulationControls(QWidget):
             self.calculated_velocities[idx].setText(f"{val:,.3f}")
 
     @staticmethod
-    def _kepler_to_eci(orbit: OrbitalElements, nu_rad: float, use_j2_correction: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def _kepler_to_eci(orbit: OrbitalElements, nu_rad: float, use_j2_correction: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         a_m = getattr(orbit, "semi_major_axis", 7000000.0) * 1e3
         e = getattr(orbit, "eccentricity", 0.0)
         inc_rad = np.deg2rad(getattr(orbit, "inclination", 0.0))
@@ -810,9 +810,6 @@ class SimulationControls(QWidget):
             if value is None:
                 return None
             numeric_angular_velocity.append(value)
-
-        dot_product = np.dot(numeric_position, numeric_velocity)
-        print(f"Iloczyn skalarny p * v: {dot_product}")
 
         self.current_configuration = SimulationConfiguration(
             orbital_data=self.orbital_data,
