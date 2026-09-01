@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from core.physics.control.bdot import BdotController
-from core.physics.control.moment_dumping_controller import MomentumDumpingController
 from core.physics.control.rw_controller import ReactionWheelsController
 from core.physics.control.slerp_trajectory import SlerpTrajectoryGenerator
 from core.physics.dataclasses.satellite_configuration import (
@@ -121,15 +120,7 @@ class SimulationEngine:
         self.current_tau_ctrl = np.zeros(3, dtype=float)
         self.i_ctrl = np.zeros(3, dtype=float)
 
-        self.momentum_dumping_controller = MomentumDumpingController(
-            wheel_axes=self.wheel_axes,
-            I_R_spin=self.I_R_spin,
-            max_wheel_speed=self.rw_controller.max_speed,
-            dump_start_ratio=0.70,
-            dump_full_ratio=0.90,
-            dump_gain=0.01,
-            max_dipole=0.2,
-        )
+
 
         self.atmospheric_model = AtmosphericDragDisturbance(
             mass=m_total,
@@ -149,7 +140,6 @@ class SimulationEngine:
 
         self.current_m_dipole = np.zeros(3)
         self.current_tau_mag = np.zeros(3)
-        self.momentum_dumping_active = False
 
         self.next_mag_update = 0.0
         self.next_gyro_update = 0.0
@@ -226,7 +216,6 @@ class SimulationEngine:
 
                 self.current_m_dipole = self.i_ctrl
                 self.current_tau_mag = self.current_tau_ctrl
-                self.momentum_dumping_active = False
 
             elif self.adcs_mode == "POINTING":
                 self.i_ctrl = np.zeros(3)
@@ -282,14 +271,6 @@ class SimulationEngine:
                     target_omega=cmd_omega,
                 )
 
-                (
-                    self.current_m_dipole,
-                    self.current_tau_mag,
-                    self.momentum_dumping_active,
-                ) = self.momentum_dumping_controller.compute_control(
-                    current_omega_rw=self.sim_state.satellite.omega_rw,
-                    current_b_body=self.current_b_body,
-                )
             else:
                 self.i_ctrl = np.zeros(3)
                 self.alpha_wheels = np.zeros(
@@ -298,7 +279,6 @@ class SimulationEngine:
                 self.current_tau_ctrl = np.zeros(3)
                 self.current_m_dipole = np.zeros(3)
                 self.current_tau_mag = np.zeros(3)
-                self.momentum_dumping_active = False
 
             self.next_control_update += self.dt_control
 

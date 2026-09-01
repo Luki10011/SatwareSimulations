@@ -137,6 +137,7 @@ class SatelliteConfigurator(QWidget):
                 "\n".join(errors.values() if isinstance(errors, dict) else errors),
                 icon=QMessageBox.Icon.Warning
             )
+            self.reset()
             return
 
         # 1. Zablokowanie sygnałów w panelu kontrolek na czas aplikacji danych

@@ -99,6 +99,7 @@ class SimulationView(QWidget):
             QSizePolicy.Policy.Expanding,
         )
 
+
         self.controls_panel_container.satellite_state_changed.connect(
             self._on_satellite_state_changed
         )
@@ -115,7 +116,8 @@ class SimulationView(QWidget):
         self.initial_gmst = get_initial_gmst(current_jd)
         self.current_ecef_rotation = self.initial_gmst
 
-        self.scene_panel_container._ensure_ECEF_orientation(self.current_ecef_rotation)        
+        self.scene_panel_container._ensure_ECEF_orientation(self.current_ecef_rotation)
+             
 
         splitter.addWidget(self.controls_panel_container)
         splitter.addWidget(self.scene_panel_container)

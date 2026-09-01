@@ -85,12 +85,6 @@ class ReactionWheelsController:
             1.0,
         )
 
-        angle_deg_error = np.degrees(
-            2.0 * np.arccos(dot)
-        )
-
-      
-
         e_angle = 2.0 * q_err[1:4]
 
         e_norm = np.linalg.norm(e_angle)

@@ -242,6 +242,8 @@ class SimulationControlPanel(QWidget):
             lambda chk: self.overlay_toggled.emit("body_axes", chk)
         )
 
+        self.chk_body_axes.setChecked(False)
+
         layout.addWidget(self.chk_body_axes)
 
         return group

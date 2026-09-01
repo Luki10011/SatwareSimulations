@@ -117,11 +117,9 @@ def calculate_rotation_matrix_to_axis(target_axis: np.ndarray) -> np.ndarray:
     if np.isclose(dot_prod, -1.0):
         return np.diag([1.0, -1.0, -1.0])
 
-    # Wektor osi obrotu (iloczyn wektorowy)
     v = np.cross(z_local, n_ri)
     s_v = skew_symmetric_matrix(v)
     
-    # Formuła Rodrigues'a dla macierzy obrotu
     r_matrix = np.eye(3, dtype=float) + s_v + (s_v @ s_v) * (1.0 / (1.0 + dot_prod))
     return r_matrix
 
@@ -153,13 +151,10 @@ def calculate_axisymmetric_cylinder_inertia_tensor(
     if wheel_tensor is not None:
         i_rwi = np.asarray(wheel_tensor, dtype=float)
         if i_rwi.shape != (3, 3):
-            raise ValueError("Wektor/macierz 'wheel_tensor' musi mieć wymiary 3x3.")
+            raise ValueError()
     else:
         if wheel_mass is None or wheel_radius is None or wheel_height is None:
-            raise ValueError(
-                "W przypadku braku 'wheel_tensor' należy podać parametry: "
-                "wheel_mass, wheel_radius oraz wheel_height."
-            )
+            raise ValueError()
         i_rwi = calculate_reaction_wheel_local_inertia(wheel_mass, wheel_radius, wheel_height)
 
     if axis is None:
@@ -213,24 +208,19 @@ def calculate_total_inertia_tensor(
     i_s = np.array(mechanical_tensor, dtype=float, copy=True)
 
     for i, axis in enumerate(wheel_axes):
-        # 1. Transformacja osi i wyznaczenie I_Ri^B
         i_ri_b = calculate_axisymmetric_cylinder_inertia_tensor(
             wheel_mass, wheel_radius, wheel_height, axis
         )
 
-        # 2. Wyznaczenie wektora przesunięcia r_Ri
         if wheel_offsets is not None and i < len(wheel_offsets):
             r_ri = np.array(wheel_offsets[i], dtype=float)
         else:
-            # Domyślny nominalny offset 5 mm wzdłuż osi obrotu koła
             norm_axis = axis / np.linalg.norm(axis) if np.linalg.norm(axis) > 0 else axis
             r_ri = norm_axis * 0.005
 
-        # 3. Twierdzenie Steinera: m_R * S(r_Ri) * S(r_Ri)^T
         s_r = skew_symmetric_matrix(r_ri)
         steiner_term = wheel_mass * (s_r @ s_r.T)
 
-        # 4. Sumowanie składników I_RBi^B
         i_rbi_b = i_ri_b + steiner_term
         i_s += i_rbi_b
         i_s[np.abs(i_s) < 1e-15] = 0.0  

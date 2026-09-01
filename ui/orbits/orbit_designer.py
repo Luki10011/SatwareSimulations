@@ -70,6 +70,7 @@ class OrbitDesigner(QWidget):
         
         self.initial_gmst = get_initial_gmst(current_jd)
         self.current_ecef_rotation = self.initial_gmst
+        print("Current GMST angle: ", self.current_ecef_rotation)
     
         self.total_steps_elapsed = 0
 

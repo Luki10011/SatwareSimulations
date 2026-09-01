@@ -263,7 +263,7 @@ class SimulationScene(QWidget):
 
         if not self._axis_items:
             self._draw_rgb_body_axes()
-            self.show_body_frame(True)
+            self.show_body_frame(False)
 
         x, y, z = position_km
 
