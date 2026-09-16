@@ -77,7 +77,7 @@ First step during the mission planning is to design an orbit. In order to do tha
 
 
 
-![alt text](image.png)
+![alt text](readme_figures/image.png)
 
 After entering the module the default state will be presented. As in the figure below.
 
@@ -127,6 +127,19 @@ The last tab in the Orbit Designer functional module is ,,Characteristics''. It 
 
 Additional funtionality in the ,,Characteristics'' tab is the visualisation of satellite's ground track. User is able to plot it in function of the number of orbits (within 24h time).
 
-![alt text](readme_figures/image-7.png)
+![alt text](readme_figures\image-7.png)
+
+### Satellite Configurator
+
+After creating the target orbit it is necesarry to define a satellite. ,,Satellite Configurator'' funtional module is responsible for this task. Analog to the Orbit Designer user can open this module through drop-down menu or quick acces section.
+
+![alt text](readme_figures\image-8.png)
+
+The default state of Satellite Configurator is presented below, the UI is divided into three tabs: 
+
+- Mechanical/EM - responsible for mechanical and electromagnetic parameters.
+- Reaction Wheels - responsible for configuration of reaction wheels control subsystem.
+- Summary - available after filling all the field with the valid values
+
 
 
