@@ -90,9 +90,9 @@ class SimulationPlotsPanel(QWidget):
         "ECI Attitude [km]" : ["pos_mag"],
         "ECI Velocity Magnitude [km/s]" : ["vel_mag"],
         "Quaternion [-]": ["q0", "q1", "q2", "q3"],
-        "Magnetic Field [T]" : ["b_body_x", "b_body_y", "b_body_z"],
+        "Magnetic Field [μT]" : ["b_body_x", "b_body_y", "b_body_z"],
         "Control Current [A]" : ["i_ctrl_x", "i_ctrl_y", "i_ctrl_z"],
-        "Control Torque [N]" : ["tau_ctrl_x", "tau_ctrl_y", "tau_ctrl_z"],
+        "Control Torque [Nm]" : ["tau_ctrl_x", "tau_ctrl_y", "tau_ctrl_z"],
         "RW Speed [deg/s]" : ["omega_rw_x", "omega_rw_y", "omega_rw_z"],
         "RW Angular Acc [deg/s^2]" : ["alpha_x", "alpha_y", "alpha_z"],
     }

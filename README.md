@@ -62,3 +62,71 @@ python -m main
 
 ## User Manual
 
+Whole system functionalities are devided into three functional modules: 
+- Orbit Designer,
+- Satellite Configurator,
+- Simulation Engine.
+
+In this section inctructions on how to use the software will be listed. 
+
+### Orbit Designer
+
+---
+
+First step during the mission planning is to design an orbit. In order to do that it is recommeneded to use a specfic tool. In `Satware Simulations` the Orbit Designer functional module is responsible for that. To create a new orbit, you can use it through drop-down menu or quick access field.
+
+
+
+![alt text](image.png)
+
+After entering the module the default state will be presented. As in the figure below.
+
+![alt text](readme_figures/image-1.png)
+
+An orbit is decribed by the keplerian elements: semi-major axis, eccentricty, inclination, RAAN, argument of perigee and true anomaly. In order to generate the orbit, some predefined conditions need to be satisfied. For each orbital parameter there is an ,,i'' icon, which describes the allowed range. When everything is correct, an orbit can be genereted.
+
+![alt text](readme_figures/image-2.png)
+
+Then user is allowed to use the series of additional functionalites for the analysis of the orbit. 
+
+#### Display Options 
+- Show ECI Vectors,
+- Show ECEF Vectors, 
+- Show Equatorial Plane,
+- Show Earth.
+
+![alt text](readme_figures/image-3.png)
+
+#### Orbit Display Options 
+
+- Show Orbit Plane,
+- Show Orbital Elements.
+
+![alt text](readme_figures/image-4.png)
+
+  User has an option to analyze the J2 perterubation effects in the ,,J2 Perturbation'' tab. After declaring the anlysis period the perturbated orbit is displayed with new argument of perigee and RAAN.
+
+  ![alt text](readme_figures/image-5.png)
+
+The last tab in the Orbit Designer functional module is ,,Characteristics''. It is responsible for summaring the created orbit with the display of following informations:
+
+- Trajectory Geometry
+  - Perigee Altitude [km],
+  - Apogee Altitude [km],
+  - Semi-latus Rectum [km].
+- Dynamics and Energetics
+  - Orbital Period [HH:MM (SS)],
+  - Velocity at Perigee [km/s],
+  - Velocity at Apogee [km/s],
+  - Specific Mechanical Energy [MJ/kg],
+- Classification Properties
+  - Orbit Type (Altitude-based),
+  - J2 Perturbation Features.
+
+![alt text](readme_figures/image-6.png)
+
+Additional funtionality in the ,,Characteristics'' tab is the visualisation of satellite's ground track. User is able to plot it in function of the number of orbits (within 24h time).
+
+![alt text](readme_figures/image-7.png)
+
+
