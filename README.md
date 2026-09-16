@@ -141,5 +141,36 @@ The default state of Satellite Configurator is presented below, the UI is divide
 - Reaction Wheels - responsible for configuration of reaction wheels control subsystem.
 - Summary - available after filling all the field with the valid values
 
+![alt text](readme_figures/image-9.png)
+
+After filling the mass and dimensions fields the 3D model fo the satellite is generated. User should fill in following fields in this section:
+
+- Mass [kg],
+- Dimensions [m],
+- Inertia tensor of the satellite hull (can be filled manually or calculated automatically by the functional module) [kg * m^2],
+- Coil turns [-],
+- Coil area [m^2],
+- Max current [A].
+
+
+![alt text](readme_figures/image-10.png)
+
+The ,,Reaction Wheels'' tab is presented below. Single reaction wheel is modeled as cylinder. User can selected preffered configuration of control system:
+
+- principal,
+- pyramid.
+
+The configurations differ from each other in the spacing of the reaction wheels in space. First one is aligned with prinicpal body axis, and the second one is presented below (yellow lines).
+
+![alt text](readme_figures/image-11.png)
+
+Valid configuration enables the summary tab with all the necessary information about created satellite's configuration. The net inertia tensor is calculted there. 
+
+![alt text](readme_figures/image-12.png)
+
+
+
+
+
 
 
