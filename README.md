@@ -168,6 +168,43 @@ Valid configuration enables the summary tab with all the necessary information a
 
 ![alt text](readme_figures/image-12.png)
 
+### Simulation Module
+
+After successfully creating the two necessary configuration files, user is able to create a new simulation. In order to do that a quick access icon or an item from dropdown menu can be used.
+
+![alt text](readme_figures/image-13.png)
+
+After chosing valid configuration files the main entry screen is shown, where user can:
+
+* define the intial condtions,
+* choose the integration step.
+
+![alt_Text](readme_figures/image-15.png)
+
+When everything is correct the simulation can be started. At this point inital previously defined parameters cannot be changed. Interface allows to:
+
+* start/pause/reset the simulation,
+* begin the detumbling process with given gain $k$,
+* control the orientation of the satelite with the reaction wheels.
+
+![alt text](readme_figures/image-14.png)
+
+During the whole simulation process the follwing physical values can be inspected with the plots tab:
+* Euler Angles [deg]
+* Angular Velocity [deg/s]
+* ECI Attitude [km]
+* ECI Velocity Magnitude [km/s]
+* Quaternion [-]
+* Magnetic Field [μT]
+* Control Current [A]
+* Control Torque [Nm] 
+* RW Speed [deg/s]
+* RW Angular Acc [deg/s^2]
+
+System allows to inspect up to 3 parameters at the time. 
+
+![alt text](readme_figures/image-16.png)
+
 
 
 
